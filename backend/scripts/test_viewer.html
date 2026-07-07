@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Cornerstone Test</title>
+  <script src="https://unpkg.com/@cornerstonejs/core@2.5.0/dist/umd/index.js"></script>
+  <script src="https://unpkg.com/@cornerstonejs/tools@2.5.0/dist/umd/index.js"></script>
+  <script src="https://unpkg.com/dicom-parser@1.8.21/dist/dicomParser.min.js"></script>
+  <script src="https://unpkg.com/@cornerstonejs/dicom-image-loader@2.5.0/dist/dynamic-import/cornerstoneDICOMImageLoader.min.js"></script>
+  <style>
+    body { background: black; color: white; }
+    #cornerstone-element { width: 512px; height: 512px; }
+  </style>
+</head>
+<body>
+  <h2>Cornerstone Test Viewer</h2>
+  <div id="cornerstone-element"></div>
+  <script>
+    async function run() {
+      try {
+        await cornerstone.init();
+        await cornerstoneTools.init();
+        
+        cornerstoneDICOMImageLoader.external.cornerstone = cornerstone;
+        cornerstoneDICOMImageLoader.external.dicomParser = dicomParser;
+        cornerstoneDICOMImageLoader.init();
+        
+        cornerstone.metaData.addProvider(
+          cornerstoneDICOMImageLoader.wadouri.metaData.metaDataProvider,
+          10000
+        );
+
+        const element = document.getElementById('cornerstone-element');
+        const renderingEngineId = 'myRenderingEngine';
+        const viewportId = 'CT_STACK';
+        
+        const renderingEngine = new cornerstone.RenderingEngine(renderingEngineId);
+        renderingEngine.enableElement({
+          viewportId,
+          type: cornerstone.Enums.ViewportType.STACK,
+          element,
+          defaultOptions: { background: [0, 0, 0] }
+        });
+        
+        const viewport = renderingEngine.getViewport(viewportId);
+        
+        // Fetch instance list to get an ID
+        const res = await fetch('http://localhost:8000/api/pacs/studies');
+        const studies = await res.json();
+        const studyId = studies[0].id;
+        const res2 = await fetch(`http://localhost:8000/api/pacs/studies/${studyId}/series`);
+        const series = await res2.json();
+        const seriesId = series[0].id;
+        const res3 = await fetch(`http://localhost:8000/api/pacs/series/${seriesId}/instances`);
+        const instances = await res3.json();
+        
+        const imageId = `wadouri:http://localhost:8000/api/pacs/instances/${instances[0].id}/file`;
+        console.log("Loading imageId:", imageId);
+        
+        await viewport.setStack([imageId]);
+        viewport.render();
+        console.log("Render success!");
+      } catch (err) {
+        console.error("Error:", err);
+      }
+    }
+    run();
+  </script>
+</body>
+</html>

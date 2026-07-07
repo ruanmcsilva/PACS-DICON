@@ -1,25 +1,58 @@
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import Viewer from './viewer/Viewer';
-import './App.css';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Sidebar from './core/layout/Sidebar';
+import Worklist from './pacs/components/Worklist';
+import Viewer from './pacs/components/Viewer';
+
+function AppLayout() {
+  return (
+    <div className="app-container">
+      {/* Sidebar - Fixa na esquerda */}
+      <Sidebar />
+      
+      {/* Área Principal de Conteúdo */}
+      <main className="main-content">
+        <header style={{ marginBottom: '32px' }}>
+          <h1>Worklist de Exames</h1>
+          <p>Visão geral dos pacientes e estudos recebidos pelo Servidor DICOM.</p>
+        </header>
+
+        {/* Dashboard Placeholder - Grid de estatísticas */}
+        <div className="dashboard-grid">
+          <div className="glass-card stat-card">
+            <span className="stat-title">Estudos Hoje</span>
+            <span className="stat-value" style={{ color: 'var(--accent-primary)' }}>12</span>
+            <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>+3% em relação a ontem</span>
+          </div>
+          
+          <div className="glass-card stat-card">
+            <span className="stat-title">Imagens Processadas</span>
+            <span className="stat-value">3,450</span>
+            <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Armazenadas no MinIO</span>
+          </div>
+          
+          <div className="glass-card stat-card">
+            <span className="stat-title">Laudos Pendentes</span>
+            <span className="stat-value" style={{ color: '#f43f5e' }}>4</span>
+            <span style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Requer atenção imediata</span>
+          </div>
+        </div>
+        
+        {/* Lista de pacientes dinâmica */}
+        <div style={{ marginTop: '32px' }}>
+          <Worklist />
+        </div>
+      </main>
+    </div>
+  );
+}
 
 function App() {
   return (
     <Router>
-      <div className="App" style={{ display: 'flex', height: '100vh', width: '100vw', margin: 0, padding: 0, overflow: 'hidden' }}>
-        <nav style={{ width: '200px', backgroundColor: '#333', color: 'white', padding: '1rem', borderRight: '1px solid #444' }}>
-          <h2>PACS/DICOM</h2>
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            <li style={{ marginBottom: '1rem' }}><Link to="/" style={{ color: '#ccc', textDecoration: 'none' }}>Dashboard</Link></li>
-            <li><Link to="/viewer" style={{ color: '#ccc', textDecoration: 'none' }}>Viewer</Link></li>
-          </ul>
-        </nav>
-        <main style={{ flex: 1, backgroundColor: '#1e1e1e' }}>
-          <Routes>
-            <Route path="/" element={<div style={{ padding: '2rem', color: 'white' }}><h1>Welcome to PACS/DICOM Platform</h1></div>} />
-            <Route path="/viewer" element={<Viewer />} />
-          </Routes>
-        </main>
-      </div>
+      <Routes>
+        <Route path="/" element={<AppLayout />} />
+        <Route path="/viewer/:seriesId" element={<Viewer />} />
+      </Routes>
     </Router>
   );
 }

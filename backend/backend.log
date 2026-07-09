@@ -59,3 +59,165 @@ INFO:     Waiting for application shutdown.
 2026-07-07 18:52:46,029 [ERROR] app.dicom.server: Failed to start DICOM Server: [Errno 98] Address already in use
 INFO:     Application shutdown complete.
 2026-07-07 18:52:46,029 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" cancelled. Reconnecting after 5 seconds.
+2026-07-07 20:10:02,218 [ERROR] aiormq.connection: Unexpected connection close from remote "amqp://pacsuser:******@localhost:5672/", Connection.Close(reply_code=320, reply_text="CONNECTION_FORCED - broker forced connection closure with reason 'shutdown'")
+Traceback (most recent call last):
+  File "/home/ruan/Documentos/PACS-DICOm/backend/venv/lib/python3.12/site-packages/uvicorn/server.py", line 172, in startup
+    server = await loop.create_server(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1572, in create_server
+    raise OSError(err.errno, msg) from None
+OSError: [Errno 98] error while attempting to bind on address ('0.0.0.0', 8000): address already in use
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/asyncio/runners.py", line 194, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 674, in run_until_complete
+    self.run_forever()
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 641, in run_forever
+    self._run_once()
+  File "/usr/lib/python3.12/asyncio/base_events.py", line 1987, in _run_once
+    handle._run()
+  File "/usr/lib/python3.12/asyncio/events.py", line 88, in _run
+    self._context.run(self._callback, *self._args)
+  File "/home/ruan/Documentos/PACS-DICOm/backend/venv/lib/python3.12/site-packages/uvicorn/server.py", line 79, in serve
+    await self._serve(sockets)
+  File "/home/ruan/Documentos/PACS-DICOm/backend/venv/lib/python3.12/site-packages/uvicorn/server.py", line 94, in _serve
+    await self.startup(sockets=sockets)
+  File "/home/ruan/Documentos/PACS-DICOm/backend/venv/lib/python3.12/site-packages/uvicorn/server.py", line 182, in startup
+    sys.exit(1)
+SystemExit: 1
+2026-07-07 20:10:02,352 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:10:02,389 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:10:02,390 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: Server connection reset: ConnectionResetError(104, 'Connection reset by peer'). Reconnecting after 5 seconds.
+2026-07-07 20:10:07,396 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:10:07,397 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:10:12,403 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:10:12,404 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:10:17,412 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:10:17,412 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:10:22,418 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:10:22,419 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:10:27,425 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:10:27,425 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:10:32,465 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:10:32,465 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:10:37,471 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:10:37,471 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:10:42,477 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:10:42,478 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:10:47,484 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:10:47,484 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:10:52,490 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:10:52,490 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:10:57,496 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:10:57,496 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:11:02,502 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:11:02,502 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:11:07,508 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:11:07,508 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:11:12,551 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:11:12,552 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:11:17,650 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:11:17,650 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:11:22,657 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:11:22,657 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:11:27,664 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:11:27,664 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:11:32,671 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:11:32,671 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:11:37,677 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:11:39,946 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:11:45,025 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:11:45,028 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:11:50,045 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:11:50,046 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:11:55,053 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:11:55,053 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:12:00,060 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:12:00,060 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:12:05,068 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:12:05,068 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:12:10,069 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:12:10,069 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:12:15,075 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:12:15,075 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:12:20,081 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:12:20,081 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:12:25,087 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:12:25,087 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:12:30,093 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:12:30,093 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:12:35,100 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:12:35,100 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:12:40,107 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:12:40,107 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:12:45,114 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:12:45,114 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:12:50,121 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:12:50,121 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:12:55,127 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:12:55,127 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:13:00,133 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:13:00,133 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:13:05,134 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:13:05,134 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:13:10,140 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:13:10,140 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:13:15,145 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:13:15,145 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:13:20,152 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:13:20,153 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:13:25,164 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:13:25,165 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:13:30,171 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:13:30,171 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:13:35,178 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:13:35,178 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:13:40,183 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:13:40,183 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:13:45,224 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:13:45,227 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:13:51,654 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:13:52,183 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:14:10,834 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:14:12,264 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:14:31,103 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:14:31,751 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:14:40,847 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:14:41,066 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:14:46,570 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:14:48,164 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:15:07,453 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:15:08,509 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:15:15,725 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:15:15,748 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:15:25,376 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:15:26,156 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:15:36,624 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:15:36,786 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:15:46,499 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:15:46,599 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:16:04,449 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:16:06,749 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:16:14,036 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:16:14,284 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:16:25,327 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:16:25,372 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:16:31,369 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:16:31,577 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:16:38,578 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:16:38,840 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:16:49,482 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:16:49,667 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:16:55,012 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:16:55,159 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:17:01,508 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:17:01,953 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.
+2026-07-07 20:17:20,823 [INFO] aio_pika.robust_connection: Connection to amqp://pacsuser:******@localhost:5672/ closed. Reconnecting after 5 seconds.
+2026-07-07 20:17:23,238 [WARNING] aio_pika.robust_connection: Connection attempt to "amqp://pacsuser:******@localhost:5672/" failed: [Errno 111] Connect call failed ('127.0.0.1', 5672). Reconnecting after 5 seconds.

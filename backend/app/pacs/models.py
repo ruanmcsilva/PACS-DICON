@@ -1,6 +1,7 @@
 import uuid
-from sqlalchemy import Column, String, Date, Time, ForeignKey, Integer
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, String, Date, Time, ForeignKey, Integer, Text, DateTime
+from datetime import datetime
+from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import relationship
 from app.core.database import Base
 
@@ -31,6 +32,7 @@ class Study(Base):
     # Relationships
     patient = relationship("Patient", back_populates="studies")
     series = relationship("Series", back_populates="study", cascade="all, delete-orphan")
+    report = relationship("Report", back_populates="study", uselist=False, cascade="all, delete-orphan")
 
 class Series(Base):
     __tablename__ = "series"
@@ -46,6 +48,7 @@ class Series(Base):
     # Relationships
     study = relationship("Study", back_populates="series")
     instances = relationship("Instance", back_populates="series", cascade="all, delete-orphan")
+    annotations = relationship("Annotation", back_populates="series", cascade="all, delete-orphan")
 
 class Instance(Base):
     __tablename__ = "instances"
@@ -60,3 +63,26 @@ class Instance(Base):
 
     # Relationships
     series = relationship("Series", back_populates="instances")
+
+class Annotation(Base):
+    __tablename__ = "annotations"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    series_id = Column(UUID(as_uuid=True), ForeignKey("series.id"), nullable=False, unique=True)
+    data = Column(JSONB, nullable=False)
+
+    # Relationships
+    series = relationship("Series", back_populates="annotations")
+
+class Report(Base):
+    __tablename__ = "reports"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    study_id = Column(UUID(as_uuid=True), ForeignKey("studies.id"), nullable=False, unique=True)
+    content = Column(Text, nullable=True)
+    status = Column(String, default="DRAFT") # DRAFT, FINAL
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # Relationships
+    study = relationship("Study", back_populates="report")

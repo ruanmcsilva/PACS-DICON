@@ -13,7 +13,7 @@ from app.dicom.server import start_dicom_server_in_background
 from app.core.queue.consumer import start_consumer
 import asyncio
 # Import models to ensure they are registered with SQLAlchemy Base before create_all
-from app.pacs.models import Patient, Study, Series, Instance
+from app.pacs.models import Patient, Study, Series, Instance, Annotation, Report
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

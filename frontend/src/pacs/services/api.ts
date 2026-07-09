@@ -11,10 +11,31 @@ const api = axios.create({
     },
 });
 
+api.interceptors.request.use((config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+});
+
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response && error.response.status === 401) {
+            localStorage.removeItem('token');
+            if (window.location.pathname !== '/login') {
+                window.location.href = '/login';
+            }
+        }
+        return Promise.reject(error);
+    }
+);
+
 export const pacsService = {
-    async getStudies(skip: number = 0, limit: number = 100): Promise<IStudy[]> {
+    async getStudies(filters?: { patient_name?: string; patient_id?: string; study_date?: string }, skip: number = 0, limit: number = 100): Promise<IStudy[]> {
         const response = await api.get<IStudy[]>('/pacs/studies', {
-            params: { skip, limit }
+            params: { skip, limit, ...filters }
         });
         return response.data;
     },
@@ -33,6 +54,58 @@ export const pacsService = {
 
     async getInstances(seriesId: string): Promise<IInstance[]> {
         const response = await api.get<IInstance[]>(`/pacs/series/${seriesId}/instances`);
+        return response.data;
+    },
+
+    async saveAnnotations(seriesId: string, data: any): Promise<any> {
+        const response = await api.post(`/pacs/series/${seriesId}/annotations`, { data });
+        return response.data;
+    },
+
+    async getAnnotations(seriesId: string): Promise<any> {
+        const response = await api.get(`/pacs/series/${seriesId}/annotations`);
+        return response.data;
+    },
+
+    async saveReport(studyId: string, content: string, status: string = "DRAFT"): Promise<any> {
+        const response = await api.post(`/pacs/studies/${studyId}/report`, { content, status });
+        return response.data;
+    },
+
+    async getReport(studyId: string): Promise<any> {
+        const response = await api.get(`/pacs/studies/${studyId}/report`);
+        return response.data;
+    },
+
+    async uploadDicom(files: FileList): Promise<any> {
+        const formData = new FormData();
+        for (let i = 0; i < files.length; i++) {
+            formData.append('files', files[i]);
+        }
+        
+        const response = await api.post('/pacs/upload', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+        return response.data;
+    },
+
+    async generateAiDraft(studyId: string): Promise<any> {
+        const response = await api.post(`/pacs/studies/${studyId}/ai-draft`);
+        return response.data;
+    },
+
+    async login(username: string, password: string): Promise<any> {
+        const formData = new URLSearchParams();
+        formData.append('username', username);
+        formData.append('password', password);
+        
+        const response = await api.post('/core/auth/login', formData, {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        });
         return response.data;
     }
 };

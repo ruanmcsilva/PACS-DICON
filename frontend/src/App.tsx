@@ -1,7 +1,13 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './core/layout/Sidebar';
 import Worklist from './pacs/components/Worklist';
 import Viewer from './pacs/components/Viewer';
+import Login from './pacs/components/Login';
+
+const PrivateRoute = ({ children }: { children: JSX.Element }) => {
+  const token = localStorage.getItem('token');
+  return token ? children : <Navigate to="/login" replace />;
+};
 
 function AppLayout() {
   return (
@@ -50,8 +56,9 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<AppLayout />} />
-        <Route path="/viewer/:seriesId" element={<Viewer />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/" element={<PrivateRoute><AppLayout /></PrivateRoute>} />
+        <Route path="/viewer/:studyId" element={<PrivateRoute><Viewer /></PrivateRoute>} />
       </Routes>
     </Router>
   );

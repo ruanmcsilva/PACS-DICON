@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict
-from typing import List, Optional
-from datetime import date, time
+from typing import List, Optional, Any
+from datetime import date, time, datetime
 from uuid import UUID
 
 # --- PATIENT ---
@@ -53,5 +53,42 @@ class StudyResponse(StudyBase):
     id: UUID
     patient_id: UUID
     patient: Optional[PatientResponse] = None
+    series_count: Optional[int] = 0
 
     model_config = ConfigDict(from_attributes=True)
+
+# --- ANNOTATION ---
+class AnnotationCreate(BaseModel):
+    data: Any # JSONB accepts any valid JSON structure
+
+class AnnotationResponse(AnnotationCreate):
+    id: UUID
+    series_id: UUID
+
+    model_config = ConfigDict(from_attributes=True)
+
+# --- REPORT ---
+class ReportCreate(BaseModel):
+    content: str
+    status: str = "DRAFT"
+
+class ReportResponse(ReportCreate):
+    id: UUID
+    study_id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+# --- INTEGRATION (HL7/RIS) ---
+class IntegrationPatientCreate(BaseModel):
+    patient_id: str
+    patient_name: str
+    patient_birth_date: Optional[str] = None
+    patient_sex: Optional[str] = None
+
+class IntegrationOrderCreate(BaseModel):
+    patient_id: str
+    accession_number: Optional[str] = None
+    study_description: str
+    study_date: Optional[str] = None

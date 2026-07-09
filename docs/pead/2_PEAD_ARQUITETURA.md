@@ -17,17 +17,17 @@ Este documento é a visão consolidada da engenharia de software do PACS Enterpr
 | **07** | DICOM (SCP) | `pynetdicom`. Implementação de Association, C-ECHO, C-STORE, C-FIND, C-MOVE. |
 | **08** | DICOMWeb (REST) | Implementação de rotas QIDO-RS (buscas JSON) e WADO-RS (download DICOM). |
 | **09** | PACS Engine | Processamento de Metadados via RabbitMQ. Hierarchy and routing base construída. |
-| **10** | Viewer | Inteface WebGL renderizada via Cornerstone3D. (*Em desenvolvimento*) |
-| **11** | Ferramentas de Medição | *Não iniciado* |
+| **10** | Viewer | Interface WebGL renderizada via Cornerstone3D. (*Concluído*) |
+| **11** | Ferramentas de Medição | Toolbar, Regras de HU, Ângulos e ROIs. (*Concluído*) |
 | **12** | MPR / MIP / VR | *Não iniciado* |
-| **13** | Annotations | *Não iniciado* |
-| **14** | Reports (Laudos) | *Não iniciado* |
-| **15** | Search Engine | *Não iniciado* |
-| **16** | Exportação | *Não iniciado* |
-| **17** | Importação | *Não iniciado* |
-| **18** | Integrações (HL7/FHIR) | *Não iniciado* |
-| **19** | Inteligência Artificial | *Não iniciado* |
-| **20** | Infraestrutura Core | Configurada via `docker-compose.yml`. |
+| **13** | Annotations | Persistência de anotações (Régua/ROI) no PostgreSQL. (*Concluído*) |
+| **14** | Reports (Laudos) | Editor de texto clínico com painel lateral associado ao Estudo. (*Concluído*) |
+| **15** | Search Engine | Filtros na Worklist usando SQLAlchemy ILIKE. (*Concluído*) |
+| **16** | Exportação | Impressão e exportação PDF via layout hidden e window.print(). (*Concluído*) |
+| **17** | Importação | Upload DICOM via Web (multipart/form-data) na Worklist. (*Concluído*) |
+| **18** | Integrações (HL7/FHIR) | API REST para cadastro prévio de Pacientes e Agendamentos. (*Concluído*) |
+| **19** | Inteligência Artificial | API simuladora de IA geradora de DRAFT clínico no Viewer. (*Concluído*) |
+| **20** | Módulo de Autenticação / Login | Proteção JWT Global e interface de Login no React. (*Concluído*) |
 | **21** | Docker de Produção | *Não iniciado* |
 | **22** | DevOps (CI/CD) | *Não iniciado* |
 | **23** | Testes (TDD/E2E) | *Não iniciado* |
@@ -65,3 +65,10 @@ O coração da integração médica (Service Class Provider). Roda de forma não
 Para servir o Front-end moderno sem onerar o C-MOVE, as APIs REST foram implementadas em `/api/dicom-web/`:
 - O **QIDO-RS** pesquisa `Studies`, `Series` e `Instances` no banco de dados e converte magicamente os modelos do SQLAlchemy para o formato nativo `application/dicom+json` exigido por clients modernos.
 - O **WADO-RS** devolve o streaming binário do arquivo buscando-o diretamente no bucket MinIO.
+
+### Volume 19: Inteligência Artificial
+- Integração da funcionalidade de auto-laudo. O Backend possui o endpoint `/ai-draft` pronto para se conectar a LLMs (Large Language Models). Ele gera automaticamente a base textual inicial de um laudo, economizando tempo do médico.
+
+### Volume 20: Segurança, Autenticação e Login
+- Todo o sistema (inclusive consumo de imagens DICOM pelo Cornerstone) é blindado através de **JWT Bearer Tokens**.
+- O Frontend possui a tela de Login isolada e as APIs do Backend rejeitam requisições 401 Unauthorized de clientes não identificados.

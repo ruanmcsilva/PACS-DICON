@@ -29,9 +29,10 @@ O "coração" do sistema já pulsa forte. Já temos:
 - *Pendente*: Módulo avançado de Archiving (arquivamento de longo prazo), Roteamento Automático (encaminhar exames baseados na modalidade) e Regras de Retenção de dados.
 
 ### 🖥️ NÍVEL 4 — VIEWER (Visualizador)
-**Status: 🔴 Foco Atual**
-- Temos a interface do Portal feita em React (Vite) com a tela de Worklist renderizando dados que chegam da API.
-- *Foco Atual*: Integrar o **Cornerstone3D** usando a recém-criada API DICOMWeb, permitindo visualizar os exames direto no navegador sem instalar nada.
+**Status: 🔴 Foco Atual (Ferramentas de Medição)**
+- Temos a interface do Portal feita em React (Webpack) com a tela de Worklist renderizando dados que chegam da API.
+- Renderização base do **Cornerstone3D** consumindo WADO-RS finalizada com sucesso.
+- *Foco Atual*: Implementação da barra de ferramentas clínicas (Volume 11) no visualizador (Régua, Ângulo, HU, etc).
 
 ### 🚀 INFRAESTRUTURA
 **Status: 🟢 MVP de Produção Pronto**
@@ -61,9 +62,45 @@ Histórico do desenvolvimento passo-a-passo.
 ### [ CONCLUÍDO ] Etapa 10: DICOMWeb (QIDO-RS e WADO-RS)
 - Criação do módulo `dicomweb` com roteamento REST, permitindo a transição do mundo binário DICOM para a Web (JSON/HTTP). Mapeamento das instâncias do SQLAlchemy gerando respostas `application/dicom+json`.
 
-### [ EM ANDAMENTO ⏳ ] Etapa 11: Integração Cornerstone3D
-- **Responsável Atual**: Equipe Front-end
-- **O que está sendo feito**: Plugar o Cornerstone3D no frontend React para consumir a nova rota WADO-RS (Etapa 10) e renderizar o `.dcm` diretamente no Viewport.
+### [ CONCLUÍDO ] Etapa 11: Integração Cornerstone3D
+- Renderização base no frontend React consumindo a API WADO-RS concluída e Web Workers operacionais.
+
+### [ CONCLUÍDO ] Etapa 12: Ferramentas de Medição (Volume 11)
+- Implementação da barra de ferramentas (Toolbar) com controles de Pan, Zoom, W/L.
+- Integração das ferramentas clínicas: Régua, Ângulo, Sonda HU e ROI Retangular.
+
+### [ CONCLUÍDO ] Etapa 13: Study Browser (Painel de Séries)
+- Migração da rota baseada em Série para Estudo.
+- Criação de Sidebar inteligente que lista todas as séries disponíveis.
+- Navegação dinâmica e recarregamento limpo da Engine do Cornerstone3D.
+
+### [ CONCLUÍDO ] Etapa 14: Persistência de Anotações (Volume 13)
+- Tabela `annotations` no PostgreSQL salva dados de ferramentas usando tipo `JSONB`.
+- Frontend serializa e desserializa o estado do `annotationManager` automaticamente via rotas REST.
+
+### [ CONCLUÍDO ] Etapa 15: Módulo de Laudos (Volume 14)
+- Criação da tabela `reports` associada ao `Study`.
+- Novo painel lateral direito no Viewer contendo um editor de texto com suporte a status "Rascunho/Finalizado".
+
+### [ CONCLUÍDO ] Etapa 16: Busca Avançada e Exportação (Volumes 15 e 16)
+- **Search Engine:** Barra de filtros na Worklist e queries dinâmicas no backend (`ILIKE` no PostgreSQL) para Nome, ID e Data.
+- **Exportação (PDF):** Utilização da API nativa do navegador (`window.print`) vinculada a uma página invisível de relatório gerada via React.
+
+### [ CONCLUÍDO ] Etapa 17: Importação via Web (Volume 17)
+- **Backend:** Rota `POST /upload` que aceita múltiplos arquivos DICOM, salva no MinIO e enfileira no RabbitMQ.
+- **Frontend:** Botão "Importar DICOM" na Worklist com modal Drag and Drop para enviar arquivos diretamente pelo navegador, democratizando o acesso.
+
+### [ CONCLUÍDO ] Etapa 18: Integrações de Agendamento (Volume 18)
+- **Backend:** Rotas REST (`/integration/patient` e `/integration/order`) construídas para simular recebimento de mensagens HL7 ADT e ORM.
+- **Frontend:** A Worklist agora suporta a renderização de "Estudos Vazios" identificando-os visualmente com a tag "⏳ Aguardando Imagens...".
+
+### [ CONCLUÍDO ] Etapa 19: Inteligência Artificial (Volume 19)
+- **Backend:** Endpoint simulador de IA (`/ai-draft`) que aguarda processamento e gera um Rascunho Clínico com base no exame.
+- **Frontend:** Integração do botão ✨ "Gerar Pré-laudo com I.A." no Viewer que bloqueia a interface com um spinner e preenche magicamente a caixa de laudos.
+
+### [ CONCLUÍDO ] Etapa 20: Módulo de Autenticação / Login (Volume 20)
+- **Backend:** Proteção global do `pacs/router.py` usando JWT Bearer Tokens (`Depends(get_current_user)`).
+- **Frontend:** Implementação de `Login.tsx`, interceptores Axios para injeção de token e rotas privadas (`PrivateRoute`) no React.
 
 ---
 
@@ -84,7 +121,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
-*(Inicia o Servidor REST em `http://localhost:8000` e o SCP DICOM na porta `11112`)*
+*(Inicia o Servidor REST em `http://localhost:3000` e o SCP DICOM na porta `11112`)*
 
 **Terminal 3: Frontend (React)**
 ```bash
@@ -92,6 +129,10 @@ cd frontend
 npm run dev
 ```
 *(Inicia a interface em `http://localhost:5173`)*
+
+**Login e Senhas:**
+- Login: admin
+- Senha: password   
 
 **Credenciais Úteis (Local):**
 - **DB PostgreSQL:** `pacsuser` / `pacspassword`

@@ -15,6 +15,7 @@ export interface IStudy {
     study_description: string | null;
     patient_id: string;
     patient?: IPatient; // Eager loaded patient
+    series_count?: number;
 }
 
 export interface ISeries {

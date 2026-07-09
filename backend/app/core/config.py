@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     # RabbitMQ Settings
     RABBITMQ_URL: str = "amqp://pacsuser:pacspassword@localhost:5672/"
 
+    # Auth Config
+    SECRET_KEY: str = "super_secret_key_for_jwt_tokens_in_dev_env"
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore")
 
 settings = Settings()

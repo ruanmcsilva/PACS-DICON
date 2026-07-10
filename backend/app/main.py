@@ -9,7 +9,7 @@ from app.dicomweb.router import router as dicomweb_router
 from app.core.logger import setup_logging
 from app.core.storage import init_minio_bucket
 from app.core.database import engine, Base
-from app.dicom.server import start_dicom_server_in_background
+from app.dicom.server import start_dicom_server_in_background, dicom_scp
 from app.core.queue.consumer import start_consumer
 import asyncio
 # Import models to ensure they are registered with SQLAlchemy Base before create_all
@@ -40,7 +40,13 @@ async def lifespan(app: FastAPI):
     
     logger.info("Shutting down PACS/DICOM Enterprise...")
     consumer_task.cancel()
-    # Clean up can be added here (e.g. stop DICOM server if supported)
+    
+    # Stop DICOM Server
+    dicom_scp.stop()
+    
+    # Dispose SQLAlchemy connection pool
+    await engine.dispose()
+    logger.info("Database connections closed.")
 
 app = FastAPI(
     title="PACS/DICOM API",

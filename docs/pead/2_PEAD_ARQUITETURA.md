@@ -19,7 +19,7 @@ Este documento é a visão consolidada da engenharia de software do PACS Enterpr
 | **09** | PACS Engine | Processamento de Metadados via RabbitMQ. Hierarchy and routing base construída. |
 | **10** | Viewer | Interface WebGL renderizada via Cornerstone3D. (*Concluído*) |
 | **11** | Ferramentas de Medição | Toolbar, Regras de HU, Ângulos e ROIs. (*Concluído*) |
-| **12** | MPR / MIP / VR | *Não iniciado* |
+| **12** | MPR / MIP / VR | Reconstrução 3D e visualizações MPR/VR/MIP concluídas no Cornerstone3D. (*Concluído*) |
 | **13** | Annotations | Persistência de anotações (Régua/ROI) no PostgreSQL. (*Concluído*) |
 | **14** | Reports (Laudos) | Editor de texto clínico com painel lateral associado ao Estudo. (*Concluído*) |
 | **15** | Search Engine | Filtros na Worklist usando SQLAlchemy ILIKE. (*Concluído*) |
@@ -28,10 +28,10 @@ Este documento é a visão consolidada da engenharia de software do PACS Enterpr
 | **18** | Integrações (HL7/FHIR) | API REST para cadastro prévio de Pacientes e Agendamentos. (*Concluído*) |
 | **19** | Inteligência Artificial | API simuladora de IA geradora de DRAFT clínico no Viewer. (*Concluído*) |
 | **20** | Módulo de Autenticação / Login | Proteção JWT Global e interface de Login no React. (*Concluído*) |
-| **21** | Docker de Produção | *Não iniciado* |
-| **22** | DevOps (CI/CD) | *Não iniciado* |
-| **23** | Testes (TDD/E2E) | *Não iniciado* |
-| **24** | Segurança | *Não iniciado* |
+| **21** | Docker de Produção | *Concluído* |
+| **22** | DevOps (CI/CD) | *Concluído* |
+| **23** | Testes (TDD/E2E) | *Concluído* |
+| **24** | Segurança | *Concluído* |
 | **25** | Manual do Desenvolvedor| Este conjunto de documentos e Roadmap em `docs/pead/`. |
 
 ---

@@ -1,8 +1,11 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
+import warnings
 
 class Settings(BaseSettings):
     # App Config
+    ENV: str = "development" # "development", "production", "testing"
     PROJECT_NAME: str = "PACS-DICOM Enterprise"
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
@@ -36,6 +39,20 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "super_secret_key_for_jwt_tokens_in_dev_env"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+
+    @model_validator(mode="after")
+    def validate_security(self) -> 'Settings':
+        if self.ENV == "production" and self.SECRET_KEY == "super_secret_key_for_jwt_tokens_in_dev_env":
+            raise ValueError(
+                "SECURITY ERROR: The default SECRET_KEY cannot be used in a production environment. "
+                "Please configure a secure SECRET_KEY in your environment variables or .env file."
+            )
+        elif self.SECRET_KEY == "super_secret_key_for_jwt_tokens_in_dev_env":
+            warnings.warn(
+                "Using default SECRET_KEY for JWT. This is only acceptable in development/test environments.",
+                UserWarning
+            )
+        return self
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore")
 

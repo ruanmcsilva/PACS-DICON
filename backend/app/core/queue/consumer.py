@@ -47,6 +47,7 @@ async def start_consumer():
     """
     Connects to RabbitMQ and starts listening to the queue indefinitely.
     """
+    connection = None
     try:
         connection = await aio_pika.connect_robust(settings.RABBITMQ_URL)
         channel = await connection.channel()
@@ -63,5 +64,12 @@ async def start_consumer():
         # Keep running
         await asyncio.Future()
         
+    except asyncio.CancelledError:
+        logger.info("RabbitMQ consumer task cancelled.")
+        raise
     except Exception as e:
         logger.error(f"Failed to start RabbitMQ consumer: {e}")
+    finally:
+        if connection and not connection.is_closed:
+            logger.info("Closing RabbitMQ connection...")
+            await connection.close()

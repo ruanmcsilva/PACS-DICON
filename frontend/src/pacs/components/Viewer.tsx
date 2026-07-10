@@ -9,7 +9,14 @@ import type { IInstance, ISeries } from '../types';
 export default function Viewer() {
   const { studyId } = useParams<{ studyId: string }>();
   const navigate = useNavigate();
+  
+  // DOM Refs
   const viewerRef = useRef<HTMLDivElement>(null);
+  const axialRef = useRef<HTMLDivElement>(null);
+  const sagittalRef = useRef<HTMLDivElement>(null);
+  const coronalRef = useRef<HTMLDivElement>(null);
+  const vrRef = useRef<HTMLDivElement>(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [seriesList, setSeriesList] = useState<ISeries[]>([]);
@@ -20,6 +27,10 @@ export default function Viewer() {
   const [reportContent, setReportContent] = useState("");
   const [reportStatus, setReportStatus] = useState<"DRAFT" | "FINAL">("DRAFT");
   const [generatingAi, setGeneratingAi] = useState(false);
+
+  // Volume MPR / VR / MIP states
+  const [viewMode, setViewMode] = useState<'2D' | 'MPR_GRID'>('2D');
+  const [mipBlendMode, setMipBlendMode] = useState<'VR' | 'MIP'>('VR');
 
   const handleToolSelect = (toolName: string) => {
     setActiveTool(toolName);
@@ -139,7 +150,7 @@ export default function Viewer() {
     fetchReport();
   }, [studyId]);
 
-  // Efeito principal do Cornerstone (agora reage ao activeSeriesId)
+  // Efeito principal do Cornerstone (reage ao activeSeriesId e viewMode)
   useEffect(() => {
     let renderingEngine: cornerstone.RenderingEngine;
     let resizeObserver: ResizeObserver;
@@ -164,7 +175,6 @@ export default function Viewer() {
         }
 
         // 2. Format Image IDs for cornerstone (using wadouri scheme)
-        // Adjust the base URL to your backend
         const baseUrl = "http://localhost:8000";
         const imageIds = data.map(inst => `wadouri:${baseUrl}/api/pacs/instances/${inst.id}/file`);
 
@@ -172,37 +182,97 @@ export default function Viewer() {
         await initCornerstone();
         if (!isMounted) return;
 
-        if (!viewerRef.current) return;
-
         // Previne crash do React Strict Mode destruindo instâncias órfãs
         const existingEngine = cornerstone.getRenderingEngine(renderingEngineId);
         if (existingEngine) {
           existingEngine.destroy();
         }
 
-        // 4. Create Rendering Engine and Viewport
+        // 4. Create Rendering Engine
         renderingEngine = new cornerstone.RenderingEngine(renderingEngineId);
+        const viewportIds: string[] = [];
 
-        const viewportInput = {
-          viewportId,
-          type: cornerstone.Enums.ViewportType.STACK,
-          element: viewerRef.current,
-          defaultOptions: {
-            background: [0, 0, 0] as [number, number, number],
-          },
-        };
+        if (viewMode === '2D') {
+          if (!viewerRef.current) return;
+          const viewportInput = {
+            viewportId,
+            type: cornerstone.Enums.ViewportType.STACK,
+            element: viewerRef.current,
+            defaultOptions: {
+              background: [0, 0, 0] as [number, number, number],
+            },
+          };
+          renderingEngine.enableElement(viewportInput);
+          viewportIds.push(viewportId);
 
-        renderingEngine.enableElement(viewportInput);
-        const viewport = renderingEngine.getViewport(viewportId) as cornerstone.Types.IStackViewport;
-
-        // Resize observer to handle dynamic layout sizes
-        resizeObserver = new ResizeObserver(() => {
-          const engine = cornerstone.getRenderingEngine(renderingEngineId);
-          if (engine) {
-            engine.resize(true, false);
+          // Resize observer to handle dynamic layout sizes
+          resizeObserver = new ResizeObserver(() => {
+            const engine = cornerstone.getRenderingEngine(renderingEngineId);
+            if (engine) {
+              engine.resize(true, false);
+            }
+          });
+          resizeObserver.observe(viewerRef.current);
+        } else {
+          // MPR Grid: verify all 4 refs are loaded in DOM
+          if (!axialRef.current || !sagittalRef.current || !coronalRef.current || !vrRef.current) {
+            console.warn("Refs para a grade MPR não encontradas.");
+            return;
           }
-        });
-        resizeObserver.observe(viewerRef.current);
+
+          const viewportInputArray = [
+            {
+              viewportId: 'AXIAL',
+              type: cornerstone.Enums.ViewportType.ORTHOGRAPHIC,
+              element: axialRef.current,
+              defaultOptions: {
+                orientation: cornerstone.Enums.OrientationAxis.AXIAL,
+                background: [0, 0, 0] as [number, number, number],
+              },
+            },
+            {
+              viewportId: 'SAGITTAL',
+              type: cornerstone.Enums.ViewportType.ORTHOGRAPHIC,
+              element: sagittalRef.current,
+              defaultOptions: {
+                orientation: cornerstone.Enums.OrientationAxis.SAGITTAL,
+                background: [0, 0, 0] as [number, number, number],
+              },
+            },
+            {
+              viewportId: 'CORONAL',
+              type: cornerstone.Enums.ViewportType.ORTHOGRAPHIC,
+              element: coronalRef.current,
+              defaultOptions: {
+                orientation: cornerstone.Enums.OrientationAxis.CORONAL,
+                background: [0, 0, 0] as [number, number, number],
+              },
+            },
+            {
+              viewportId: '3D_VR',
+              type: cornerstone.Enums.ViewportType.VOLUME_3D,
+              element: vrRef.current,
+              defaultOptions: {
+                background: [0.05, 0.05, 0.05] as [number, number, number],
+              },
+            },
+          ];
+
+          renderingEngine.setViewports(viewportInputArray);
+          viewportIds.push('AXIAL', 'SAGITTAL', 'CORONAL', '3D_VR');
+
+          // Resize observer on all 4 components
+          resizeObserver = new ResizeObserver(() => {
+            const engine = cornerstone.getRenderingEngine(renderingEngineId);
+            if (engine) {
+              engine.resize(true, false);
+            }
+          });
+          resizeObserver.observe(axialRef.current);
+          resizeObserver.observe(sagittalRef.current);
+          resizeObserver.observe(coronalRef.current);
+          resizeObserver.observe(vrRef.current);
+        }
 
         // 5. Setup Tools
         cornerstoneTools.addTool(cornerstoneTools.WindowLevelTool);
@@ -210,7 +280,6 @@ export default function Viewer() {
         cornerstoneTools.addTool(cornerstoneTools.ZoomTool);
         cornerstoneTools.addTool(cornerstoneTools.StackScrollTool);
         
-        // NOVO: Measurement Tools
         cornerstoneTools.addTool(cornerstoneTools.LengthTool);
         cornerstoneTools.addTool(cornerstoneTools.AngleTool);
         cornerstoneTools.addTool(cornerstoneTools.ProbeTool);
@@ -249,33 +318,64 @@ export default function Viewer() {
           toolGroup.setToolPassive(cornerstoneTools.ProbeTool.toolName);
           toolGroup.setToolPassive(cornerstoneTools.RectangleROITool.toolName);
 
-          toolGroup.addViewport(viewportId, renderingEngineId);
+          viewportIds.forEach(vpId => {
+            toolGroup.addViewport(vpId, renderingEngineId);
+          });
         }
 
         console.log("6. Loading images into viewport...");
-        console.log("Image IDs:", imageIds);
-        
         try {
-          console.log("Testing manual image load...");
-          const img = await cornerstone.imageLoader.loadAndCacheImage(imageIds[0]);
-          console.log("Image loaded manually successfully!", img);
-          
-          await viewport.setStack(imageIds, 0);
-          console.log("setStack resolvido com sucesso!");
-          viewport.render();
-          console.log("viewport.render() chamado com sucesso!");
+          if (viewMode === '2D') {
+            const viewport = renderingEngine.getViewport(viewportId) as cornerstone.Types.IStackViewport;
+            await viewport.setStack(imageIds, 0);
+            viewport.render();
 
-          // 7. Restaurar Anotações Salvas (se existirem)
-          try {
-            const saved = await pacsService.getAnnotations(activeSeriesId);
-            if (saved && saved.data) {
-                const annotationManager = cornerstoneTools.annotation.state.getAnnotationManager();
-                annotationManager.restoreAnnotations(saved.data);
-                viewport.render();
-                console.log("Anotações restauradas com sucesso.");
+            // 7. Restaurar Anotações Salvas (se existirem)
+            try {
+              const saved = await pacsService.getAnnotations(activeSeriesId);
+              if (saved && saved.data) {
+                  const annotationManager = cornerstoneTools.annotation.state.getAnnotationManager();
+                  annotationManager.restoreAnnotations(saved.data);
+                  viewport.render();
+              }
+            } catch (annErr) {
+              console.log("Nenhuma anotação prévia encontrada para esta série.");
             }
-          } catch (annErr) {
-            console.log("Nenhuma anotação prévia encontrada para esta série.");
+          } else {
+            // Volume creation for MPR/VR
+            const volumeId = `cornerstoneUID:${activeSeriesId}`;
+            let volume = cornerstone.cache.getVolume(volumeId);
+            if (!volume) {
+              volume = await cornerstone.volumeLoader.createAndCacheVolume(volumeId, { imageIds });
+            }
+            await volume.load();
+
+            const vpAxial = renderingEngine.getViewport('AXIAL') as cornerstone.Types.IVolumeViewport;
+            const vpSagittal = renderingEngine.getViewport('SAGITTAL') as cornerstone.Types.IVolumeViewport;
+            const vpCoronal = renderingEngine.getViewport('CORONAL') as cornerstone.Types.IVolumeViewport;
+            const vpVR = renderingEngine.getViewport('3D_VR') as cornerstone.Types.IVolumeViewport;
+
+            await vpAxial.setVolume(volumeId);
+            await vpSagittal.setVolume(volumeId);
+            await vpCoronal.setVolume(volumeId);
+            await vpVR.setVolume(volumeId);
+
+            // Apply blend mode logic
+            if (mipBlendMode === 'MIP') {
+              vpVR.setProperties({ blendMode: cornerstone.Enums.BlendModes.MIP });
+            } else {
+              vpVR.setProperties({ blendMode: cornerstone.Enums.BlendModes.COMPOSITE });
+              try {
+                const actor = vpVR.getActor(volumeId);
+                if (actor && actor.actor) {
+                  actor.actor.getProperty().setShading(true);
+                  actor.actor.getProperty().setInterpolationTypeToLinear();
+                }
+              } catch (actorErr) {
+                console.warn("Could not set 3D VR actor properties", actorErr);
+              }
+            }
+            renderingEngine.render();
           }
 
         } catch (stackErr) {
@@ -304,7 +404,34 @@ export default function Viewer() {
       }
       cornerstoneTools.ToolGroupManager.destroyToolGroup(toolGroupId);
     };
-  }, [activeSeriesId]);
+  }, [activeSeriesId, viewMode]);
+
+  // Efeito dinâmico para alternar o BlendMode do Viewport 3D sem recarregar a engine
+  useEffect(() => {
+    if (viewMode === 'MPR_GRID') {
+      try {
+        const engine = cornerstone.getRenderingEngine('myRenderingEngine');
+        if (engine) {
+          const vpVR = engine.getViewport('3D_VR') as cornerstone.Types.IVolumeViewport;
+          if (vpVR) {
+            const volumeId = `cornerstoneUID:${activeSeriesId}`;
+            if (mipBlendMode === 'MIP') {
+              vpVR.setProperties({ blendMode: cornerstone.Enums.BlendModes.MIP });
+            } else {
+              vpVR.setProperties({ blendMode: cornerstone.Enums.BlendModes.COMPOSITE });
+              const actor = vpVR.getActor(volumeId);
+              if (actor && actor.actor) {
+                actor.actor.getProperty().setShading(true);
+              }
+            }
+            vpVR.render();
+          }
+        }
+      } catch (e) {
+        console.warn("Erro ao atualizar BlendMode 3D:", e);
+      }
+    }
+  }, [mipBlendMode, viewMode, activeSeriesId]);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', backgroundColor: 'black', color: 'white', position: 'absolute', top: 0, left: 0, zIndex: 50 }}>
@@ -346,7 +473,8 @@ export default function Viewer() {
       </div>
 
       {/* Toolbar */}
-      <div style={{ display: 'flex', gap: '8px', padding: '8px 24px', backgroundColor: '#1f2937', borderBottom: '1px solid #374151', overflowX: 'auto' }}>
+      <div style={{ display: 'flex', gap: '8px', padding: '8px 24px', backgroundColor: '#1f2937', borderBottom: '1px solid #374151', overflowX: 'auto', alignItems: 'center' }}>
+        {/* Viewport Tools */}
         {[
           { name: cornerstoneTools.WindowLevelTool.toolName, label: 'W/L (Brilho)' },
           { name: cornerstoneTools.PanTool.toolName, label: 'Mover' },
@@ -375,6 +503,82 @@ export default function Viewer() {
             {tool.label}
           </button>
         ))}
+
+        {/* Divider */}
+        <div style={{ width: '1px', height: '24px', backgroundColor: '#4b5563', margin: '0 8px' }} />
+
+        {/* ViewMode selection */}
+        <div style={{ display: 'flex', gap: '4px', whiteSpace: 'nowrap' }}>
+          <button
+            onClick={() => setViewMode('2D')}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              backgroundColor: viewMode === '2D' ? '#10b981' : '#374151',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+            }}
+          >
+            🔬 Modo 2D (Stack)
+          </button>
+          <button
+            onClick={() => setViewMode('MPR_GRID')}
+            style={{
+              padding: '6px 12px',
+              borderRadius: '6px',
+              backgroundColor: viewMode === 'MPR_GRID' ? '#10b981' : '#374151',
+              color: 'white',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+            }}
+          >
+            🧊 Grade MPR / 3D
+          </button>
+        </div>
+
+        {/* Volume rendering mode toggles (only when viewMode is MPR_GRID) */}
+        {viewMode === 'MPR_GRID' && (
+          <>
+            <div style={{ width: '1px', height: '24px', backgroundColor: '#4b5563', margin: '0 8px' }} />
+            <div style={{ display: 'flex', gap: '4px', whiteSpace: 'nowrap' }}>
+              <button
+                onClick={() => setMipBlendMode('VR')}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  backgroundColor: mipBlendMode === 'VR' ? '#f59e0b' : '#374151',
+                  color: 'white',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                }}
+              >
+                VR (Renderizar Volume)
+              </button>
+              <button
+                onClick={() => setMipBlendMode('MIP')}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  backgroundColor: mipBlendMode === 'MIP' ? '#f59e0b' : '#374151',
+                  color: 'white',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '0.875rem',
+                  fontWeight: 600,
+                }}
+              >
+                MIP (Projeção Máxima)
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Content Area (Sidebar + Viewer) */}
@@ -406,7 +610,7 @@ export default function Viewer() {
           </div>
         </div>
 
-        {/* Viewer Area */}
+        {/* Area do Visualizador */}
         <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }} onContextMenu={(e) => e.preventDefault()}>
           {loading && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 10 }}>
@@ -420,10 +624,40 @@ export default function Viewer() {
             </div>
           )}
 
-          <div 
-            ref={viewerRef} 
-            style={{ width: '100%', height: '100%', outline: 'none' }}
-          />
+          {viewMode === '2D' ? (
+            <div 
+              ref={viewerRef} 
+              style={{ width: '100%', height: '100%', outline: 'none' }}
+            />
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', width: '100%', height: '100%', backgroundColor: '#111827', gap: '2px', padding: '2px' }}>
+              {/* Axial Viewport */}
+              <div style={{ position: 'relative', border: '1px solid #374151', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: '8px', left: '8px', zIndex: 10, fontSize: '0.75rem', fontWeight: 600, color: '#3b82f6', backgroundColor: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px' }}>AXIAL</div>
+                <div ref={axialRef} style={{ width: '100%', height: '100%', outline: 'none' }} />
+              </div>
+              
+              {/* Sagittal Viewport */}
+              <div style={{ position: 'relative', border: '1px solid #374151', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: '8px', left: '8px', zIndex: 10, fontSize: '0.75rem', fontWeight: 600, color: '#10b981', backgroundColor: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px' }}>SAGITAL</div>
+                <div ref={sagittalRef} style={{ width: '100%', height: '100%', outline: 'none' }} />
+              </div>
+              
+              {/* Coronal Viewport */}
+              <div style={{ position: 'relative', border: '1px solid #374151', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: '8px', left: '8px', zIndex: 10, fontSize: '0.75rem', fontWeight: 600, color: '#8b5cf6', backgroundColor: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px' }}>CORONAL</div>
+                <div ref={coronalRef} style={{ width: '100%', height: '100%', outline: 'none' }} />
+              </div>
+              
+              {/* 3D / VR Viewport */}
+              <div style={{ position: 'relative', border: '1px solid #374151', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: '8px', left: '8px', zIndex: 10, fontSize: '0.75rem', fontWeight: 600, color: '#f59e0b', backgroundColor: 'rgba(0,0,0,0.6)', padding: '2px 6px', borderRadius: '4px' }}>
+                  RECONSTRUÇÃO 3D ({mipBlendMode === 'MIP' ? 'MIP' : 'VR'})
+                </div>
+                <div ref={vrRef} style={{ width: '100%', height: '100%', outline: 'none' }} />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Right Sidebar (Report) */}

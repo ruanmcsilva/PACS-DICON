@@ -29,10 +29,10 @@ O "coração" do sistema já pulsa forte. Já temos:
 - *Pendente*: Módulo avançado de Archiving (arquivamento de longo prazo), Roteamento Automático (encaminhar exames baseados na modalidade) e Regras de Retenção de dados.
 
 ### 🖥️ NÍVEL 4 — VIEWER (Visualizador)
-**Status: 🔴 Foco Atual (Ferramentas de Medição)**
-- Temos a interface do Portal feita em React (Webpack) com a tela de Worklist renderizando dados que chegam da API.
-- Renderização base do **Cornerstone3D** consumindo WADO-RS finalizada com sucesso.
-- *Foco Atual*: Implementação da barra de ferramentas clínicas (Volume 11) no visualizador (Régua, Ângulo, HU, etc).
+**Status: 🟢 Concluído**
+- Interface do Portal em React renderizando a Worklist com dados em tempo real.
+- Visualização de imagens DICOM 2D via Cornerstone3D com ferramentas de medição (Régua, Ângulo, HU, ROI).
+- Reconstrução tridimensional Multiplanar (MPR) nos eixos Axial, Sagital e Coronal, além de renderizações volumétricas avançadas (VR e MIP).
 
 ### 🚀 INFRAESTRUTURA
 **Status: 🟢 MVP de Produção Pronto**
@@ -101,6 +101,16 @@ Histórico do desenvolvimento passo-a-passo.
 ### [ CONCLUÍDO ] Etapa 20: Módulo de Autenticação / Login (Volume 20)
 - **Backend:** Proteção global do `pacs/router.py` usando JWT Bearer Tokens (`Depends(get_current_user)`).
 - **Frontend:** Implementação de `Login.tsx`, interceptores Axios para injeção de token e rotas privadas (`PrivateRoute`) no React.
+
+### [ CONCLUÍDO ] Etapas 21 a 24: Produção, Testes e Segurança (Volumes 21 a 24)
+- **Docker de Produção (Volume 21):** Criados `Dockerfile` multi-stage para backend e frontend, configurando um ambiente isolado com `docker-compose.prod.yml` e proxy reverso otimizado com `nginx.prod.conf`.
+- **DevOps (CI/CD) (Volume 22):** Pipeline automatizado via GitHub Actions (`ci.yml`) para executar validação sintática (linting) e testes a cada modificação na base de código.
+- **Testes (TDD/E2E) (Volume 23):** Estruturação do Pytest no backend (`backend/tests/`) validando serviços REST (health, login, token) e handlers do motor DICOM.
+- **Segurança (Volume 24):** Bloqueio de chave JWT padrão de desenvolvimento em produção e padronização do código HTTP 401 Unauthorized para sessões inválidas.
+
+### [ CONCLUÍDO ] Etapa 25: Reconstrução Multiplanar e Visualização 3D (Volume 12)
+- **Modos MPR/3D:** Implementação de grade de visualização 2x2 com planos Axial, Sagital e Coronal reconstruídos tridimensionalmente no Cornerstone3D.
+- **VR & MIP:** Adicionado suporte para renderização tridimensional de volume (Volume Rendering) e projeção de intensidade máxima (MIP) com controle de visualização integrado na Toolbar.
 
 ---
 

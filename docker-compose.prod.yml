@@ -1,0 +1,126 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    container_name: pacs_db_prod
+    environment:
+      POSTGRES_USER: pacsuser
+      POSTGRES_PASSWORD: pacspassword
+      POSTGRES_DB: pacs_dicom
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data_prod:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pacsuser -d pacs_dicom"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: pacs_redis_prod
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data_prod:/data
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: pacs_rabbitmq_prod
+    environment:
+      RABBITMQ_DEFAULT_USER: pacsuser
+      RABBITMQ_DEFAULT_PASS: pacspassword
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data_prod:/var/lib/rabbitmq
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio
+    container_name: pacs_minio_prod
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data_prod:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9000/minio/health/live || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pacs_backend_prod
+    environment:
+      - POSTGRES_SERVER=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=pacsuser
+      - POSTGRES_PASSWORD=pacspassword
+      - POSTGRES_DB=pacs_dicom
+      - MINIO_SERVER=minio:9000
+      - MINIO_SECURE=False
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+      - MINIO_BUCKET_NAME=dicom-images
+      - RABBITMQ_URL=amqp://pacsuser:pacspassword@rabbitmq:5672/
+      - SECRET_KEY=prod_fallback_secure_key_you_must_change_in_env_file
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=60
+    ports:
+      - "11112:11112" # DICOM SCP is exposed to public network
+      - "8000:8000"   # Optional direct API access
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pacs_frontend_prod
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: pacs_nginx_prod
+    ports:
+      - "80:80"
+      # - "443:443" # For production SSL/TLS
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+volumes:
+  db_data_prod:
+  redis_data_prod:
+  rabbitmq_data_prod:
+  minio_data_prod:

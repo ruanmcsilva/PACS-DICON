@@ -34,14 +34,13 @@ class DicomServer:
 
     def start(self):
         """
-        Starts the DICOM SCP server in a blocking way.
-        Should be called inside a background thread so it doesn't block FastAPI.
+        Starts the DICOM SCP server in a non-blocking way.
         """
         logger.info(f"Starting DICOM Server (SCP) on port {settings.DICOM_PORT} with AETitle '{settings.DICOM_AETITLE}'...")
         try:
             self.server = self.ae.start_server(
                 ("", settings.DICOM_PORT), 
-                block=True, 
+                block=False, 
                 evt_handlers=self.handlers
             )
         except Exception as e:
@@ -61,9 +60,8 @@ dicom_scp = DicomServer()
 
 def start_dicom_server_in_background():
     """
-    Helper function to launch the DICOM server in a separate thread.
+    Helper function to launch the DICOM server.
     Call this function when the FastAPI app starts up.
     """
-    thread = threading.Thread(target=dicom_scp.start, daemon=True)
-    thread.start()
-    return thread
+    dicom_scp.start()
+    return None

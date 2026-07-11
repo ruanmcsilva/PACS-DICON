@@ -2,9 +2,46 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import * as cornerstone from '@cornerstonejs/core';
 import * as cornerstoneTools from '@cornerstonejs/tools';
+import {
+  LayoutGrid, ChevronUp, ChevronDown, Play, Film,
+  Search, Contrast, Move, Ruler, MessageSquare,
+  Square, Circle, Shapes, Pointer, Scan, Trash2, MoreHorizontal, MousePointer2, Layers
+} from 'lucide-react';
 import { pacsService } from '../services/api';
 import initCornerstone from '../utils/initCornerstone';
 import type { IInstance, ISeries } from '../types';
+import ViewportOverlay from './ViewportOverlay';
+
+const Divider = () => <div style={{ width: '1px', height: '32px', backgroundColor: '#27272a', margin: '0 4px' }} />;
+
+const ToolButton = ({ icon, label, active = false, onClick }: any) => {
+  const [hover, setHover] = React.useState(false);
+  const color = active || hover ? '#38bdf8' : '#a1a1aa';
+  return (
+    <button
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onClick={onClick}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '4px',
+        padding: '6px 8px',
+        borderRadius: '8px',
+        backgroundColor: hover ? 'rgba(56, 189, 248, 0.1)' : 'transparent',
+        border: 'none',
+        cursor: 'pointer',
+        minWidth: '52px',
+        transition: 'all 0.1s ease',
+      }}
+    >
+      <div style={{ color, display: 'flex' }}>{icon}</div>
+      <span style={{ color, fontSize: '10px', fontWeight: 600 }}>{label}</span>
+    </button>
+  );
+};
 
 export default function Viewer() {
   const { studyId } = useParams<{ studyId: string }>();
@@ -28,6 +65,42 @@ export default function Viewer() {
   const [reportStatus, setReportStatus] = useState<"DRAFT" | "FINAL">("DRAFT");
   const [generatingAi, setGeneratingAi] = useState(false);
 
+  // UI States
+  const [isSeriesListOpen, setIsSeriesListOpen] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const playIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Navigation Logic
+  const navigateSlice = (direction: number) => {
+    const engine = cornerstone.getRenderingEngine('myRenderingEngine');
+    if (!engine) return;
+    const viewports = engine.getViewports();
+    viewports.forEach(vp => {
+      const viewport: any = vp;
+      if (typeof viewport.scroll === 'function') {
+        viewport.scroll(direction);
+      }
+    });
+  };
+
+  const togglePlay = () => {
+    if (isPlaying) {
+      if (playIntervalRef.current) clearInterval(playIntervalRef.current);
+      setIsPlaying(false);
+    } else {
+      setIsPlaying(true);
+      playIntervalRef.current = setInterval(() => {
+        navigateSlice(1);
+      }, 100);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (playIntervalRef.current) clearInterval(playIntervalRef.current);
+    };
+  }, []);
+
   // Volume MPR / VR / MIP states
   const [viewMode, setViewMode] = useState<'2D' | 'MPR_GRID'>('2D');
   const [mipBlendMode, setMipBlendMode] = useState<'VR' | 'MIP'>('VR');
@@ -45,7 +118,10 @@ export default function Viewer() {
       cornerstoneTools.LengthTool.toolName,
       cornerstoneTools.AngleTool.toolName,
       cornerstoneTools.ProbeTool.toolName,
-      cornerstoneTools.RectangleROITool.toolName
+      cornerstoneTools.RectangleROITool.toolName,
+      cornerstoneTools.EllipticalROITool.toolName,
+      cornerstoneTools.ArrowAnnotateTool.toolName,
+      cornerstoneTools.PlanarFreehandROITool.toolName
     ];
 
     primaryTools.forEach((tool) => {
@@ -284,6 +360,9 @@ export default function Viewer() {
         cornerstoneTools.addTool(cornerstoneTools.AngleTool);
         cornerstoneTools.addTool(cornerstoneTools.ProbeTool);
         cornerstoneTools.addTool(cornerstoneTools.RectangleROITool);
+        cornerstoneTools.addTool(cornerstoneTools.EllipticalROITool);
+        cornerstoneTools.addTool(cornerstoneTools.ArrowAnnotateTool);
+        cornerstoneTools.addTool(cornerstoneTools.PlanarFreehandROITool);
 
         // Remove old group if exists
         cornerstoneTools.ToolGroupManager.destroyToolGroup(toolGroupId);
@@ -298,6 +377,9 @@ export default function Viewer() {
           toolGroup.addTool(cornerstoneTools.AngleTool.toolName);
           toolGroup.addTool(cornerstoneTools.ProbeTool.toolName);
           toolGroup.addTool(cornerstoneTools.RectangleROITool.toolName);
+          toolGroup.addTool(cornerstoneTools.EllipticalROITool.toolName);
+          toolGroup.addTool(cornerstoneTools.ArrowAnnotateTool.toolName);
+          toolGroup.addTool(cornerstoneTools.PlanarFreehandROITool.toolName);
 
           toolGroup.setToolActive(cornerstoneTools.WindowLevelTool.toolName, {
             bindings: [{ mouseButton: cornerstoneTools.Enums.MouseBindings.Primary }],
@@ -317,6 +399,9 @@ export default function Viewer() {
           toolGroup.setToolPassive(cornerstoneTools.AngleTool.toolName);
           toolGroup.setToolPassive(cornerstoneTools.ProbeTool.toolName);
           toolGroup.setToolPassive(cornerstoneTools.RectangleROITool.toolName);
+          toolGroup.setToolPassive(cornerstoneTools.EllipticalROITool.toolName);
+          toolGroup.setToolPassive(cornerstoneTools.ArrowAnnotateTool.toolName);
+          toolGroup.setToolPassive(cornerstoneTools.PlanarFreehandROITool.toolName);
 
           viewportIds.forEach(vpId => {
             toolGroup.addViewport(vpId, renderingEngineId);
@@ -343,9 +428,19 @@ export default function Viewer() {
             }
           } else {
             // Volume creation for MPR/VR
+            // Para 'wadouri', precisamos que os metadados já estejam carregados antes de criar o volume.
             const volumeId = `cornerstoneUID:${activeSeriesId}`;
             let volume = cornerstone.cache.getVolume(volumeId);
             if (!volume) {
+              console.log("Pré-carregando imagens para extrair metadados do volume 3D/MPR...");
+              // Carregamos em lotes para não sobrecarregar o navegador com dezenas/centenas de requisições simultâneas
+              const batchSize = 10;
+              for (let i = 0; i < imageIds.length; i += batchSize) {
+                const batch = imageIds.slice(i, i + batchSize);
+                await Promise.all(batch.map(id => cornerstone.imageLoader.loadAndCacheImage(id)));
+              }
+              console.log("Metadados carregados. Construindo o volume...");
+
               volume = await cornerstone.volumeLoader.createAndCacheVolume(volumeId, { imageIds });
             }
             await volume.load();
@@ -435,180 +530,148 @@ export default function Viewer() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', backgroundColor: 'black', color: 'white', position: 'absolute', top: 0, left: 0, zIndex: 50 }}>
-      {/* Topbar */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px', backgroundColor: '#111827', borderBottom: '1px solid #374151' }}>
-        <div>
-          <h2 style={{ fontSize: '1.125rem', fontWeight: 600, margin: 0 }}>
-            Viewer <span style={{ fontSize: '0.875rem', fontWeight: 400, color: '#9ca3af' }}>({instances.length} imagens)</span>
-          </h2>
-          <div style={{ display: 'flex', gap: '16px', fontSize: '0.75rem', color: '#9ca3af', marginTop: '4px' }}>
-            <span>Mouse Esquerdo: Ação da Ferramenta Ativa</span>
-            <span>Mouse Meio: Mover</span>
-            <span>Mouse Direito: Zoom</span>
-            <span>Scroll: Passar Imagens</span>
+      {/* Toolbar - OHIF Style */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 16px', backgroundColor: '#000000', borderBottom: '1px solid #27272a', width: '100%', boxSizing: 'border-box' }}>
+        
+        {/* Logo / Info */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: '200px' }}>
+          <div style={{ color: 'white', fontSize: '1.2rem', fontWeight: 'bold' }}>
+            <span style={{ color: '#38bdf8' }}>PACS</span> Viewer
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button 
-            onClick={() => setIsReportPanelOpen(!isReportPanelOpen)}
-            style={{ padding: '8px 16px', borderRadius: '8px', backgroundColor: isReportPanelOpen ? '#4b5563' : '#10b981', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 600 }}
-          >
-            {isReportPanelOpen ? '❌ Fechar Laudo' : '📝 Laudar'}
-          </button>
-          <button 
-            onClick={handleSaveAnnotations}
-            style={{ padding: '8px 16px', borderRadius: '8px', backgroundColor: '#3b82f6', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 600, transition: 'background-color 0.2s' }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#3b82f6'}
-          >
-            💾 Salvar Anotações
-          </button>
-          <button 
-            onClick={() => navigate('/')}
-            style={{ padding: '8px 16px', borderRadius: '8px', backgroundColor: '#1f2937', color: 'white', border: '1px solid #4b5563', cursor: 'pointer' }}
-          >
-            Voltar para Lista
-          </button>
-        </div>
-      </div>
 
-      {/* Toolbar */}
-      <div style={{ display: 'flex', gap: '8px', padding: '8px 24px', backgroundColor: '#1f2937', borderBottom: '1px solid #374151', overflowX: 'auto', alignItems: 'center' }}>
-        {/* Viewport Tools */}
-        {[
-          { name: cornerstoneTools.WindowLevelTool.toolName, label: 'W/L (Brilho)' },
-          { name: cornerstoneTools.PanTool.toolName, label: 'Mover' },
-          { name: cornerstoneTools.ZoomTool.toolName, label: 'Zoom' },
-          { name: cornerstoneTools.LengthTool.toolName, label: '📏 Régua' },
-          { name: cornerstoneTools.AngleTool.toolName, label: '📐 Ângulo' },
-          { name: cornerstoneTools.ProbeTool.toolName, label: '📍 Pixel' },
-          { name: cornerstoneTools.RectangleROITool.toolName, label: '⬛ ROI Retângulo' },
-        ].map(tool => (
-          <button
-            key={tool.name}
-            onClick={() => handleToolSelect(tool.name)}
-            style={{
-              padding: '6px 12px',
-              borderRadius: '6px',
-              backgroundColor: activeTool === tool.name ? '#3b82f6' : '#374151',
-              color: activeTool === tool.name ? 'white' : '#d1d5db',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '0.875rem',
-              fontWeight: 500,
-              transition: 'all 0.2s',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            {tool.label}
-          </button>
-        ))}
+        {/* Ferramentas Centrais */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', overflowX: 'auto' }}>
+          {/* Nav */}
+          <ToolButton icon={<LayoutGrid size={20}/>} label="Series" active={isSeriesListOpen} onClick={() => setIsSeriesListOpen(!isSeriesListOpen)} />
+          <ToolButton icon={<ChevronUp size={20}/>} label="Previous" onClick={() => navigateSlice(-1)} />
+          <ToolButton icon={<ChevronDown size={20}/>} label="Next" onClick={() => navigateSlice(1)} />
+          <ToolButton icon={<Play size={20}/>} label="Play" active={isPlaying} onClick={togglePlay} />
+          <ToolButton icon={<Film size={20}/>} label="CINE" onClick={() => alert('Controle de velocidade CINE em desenvolvimento.')} />
+          
+          <Divider />
 
-        {/* Divider */}
-        <div style={{ width: '1px', height: '24px', backgroundColor: '#4b5563', margin: '0 8px' }} />
+          {/* Layout */}
+          <ToolButton 
+            icon={<LayoutGrid size={20}/>} 
+            label="Layout" 
+            active={viewMode === 'MPR_GRID'} 
+            onClick={() => setViewMode(viewMode === '2D' ? 'MPR_GRID' : '2D')} 
+          />
 
-        {/* ViewMode selection */}
-        <div style={{ display: 'flex', gap: '4px', whiteSpace: 'nowrap' }}>
-          <button
-            onClick={() => setViewMode('2D')}
-            style={{
-              padding: '6px 12px',
-              borderRadius: '6px',
-              backgroundColor: viewMode === '2D' ? '#10b981' : '#374151',
-              color: 'white',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-            }}
-          >
-            🔬 Modo 2D (Stack)
-          </button>
-          <button
-            onClick={() => setViewMode('MPR_GRID')}
-            style={{
-              padding: '6px 12px',
-              borderRadius: '6px',
-              backgroundColor: viewMode === 'MPR_GRID' ? '#10b981' : '#374151',
-              color: 'white',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-            }}
-          >
-            🧊 Grade MPR / 3D
-          </button>
-        </div>
-
-        {/* Volume rendering mode toggles (only when viewMode is MPR_GRID) */}
-        {viewMode === 'MPR_GRID' && (
-          <>
-            <div style={{ width: '1px', height: '24px', backgroundColor: '#4b5563', margin: '0 8px' }} />
-            <div style={{ display: 'flex', gap: '4px', whiteSpace: 'nowrap' }}>
-              <button
-                onClick={() => setMipBlendMode('VR')}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  backgroundColor: mipBlendMode === 'VR' ? '#f59e0b' : '#374151',
-                  color: 'white',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                }}
-              >
-                VR (Renderizar Volume)
-              </button>
-              <button
-                onClick={() => setMipBlendMode('MIP')}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '6px',
-                  backgroundColor: mipBlendMode === 'MIP' ? '#f59e0b' : '#374151',
-                  color: 'white',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '0.875rem',
-                  fontWeight: 600,
-                }}
-              >
-                MIP (Projeção Máxima)
-              </button>
+          {viewMode === 'MPR_GRID' && (
+            <div style={{ display: 'flex', border: '1px solid #27272a', borderRadius: '4px', overflow: 'hidden', marginLeft: '4px' }}>
+              <button onClick={() => setMipBlendMode('VR')} style={{ padding: '4px 8px', backgroundColor: mipBlendMode === 'VR' ? '#38bdf8' : 'transparent', color: mipBlendMode === 'VR' ? 'black' : '#a1a1aa', border: 'none', cursor: 'pointer', fontSize: '10px', fontWeight: 600 }}>VR</button>
+              <button onClick={() => setMipBlendMode('MIP')} style={{ padding: '4px 8px', backgroundColor: mipBlendMode === 'MIP' ? '#38bdf8' : 'transparent', color: mipBlendMode === 'MIP' ? 'black' : '#a1a1aa', border: 'none', cursor: 'pointer', fontSize: '10px', fontWeight: 600 }}>MIP</button>
             </div>
-          </>
-        )}
+          )}
+
+          <Divider />
+
+          {/* View */}
+          <ToolButton icon={<Search size={20}/>} label="Zoom (Z)" active={activeTool === cornerstoneTools.ZoomTool.toolName} onClick={() => handleToolSelect(cornerstoneTools.ZoomTool.toolName)} />
+          <ToolButton icon={<Contrast size={20}/>} label="Levels (L)" active={activeTool === cornerstoneTools.WindowLevelTool.toolName} onClick={() => handleToolSelect(cornerstoneTools.WindowLevelTool.toolName)} />
+          <ToolButton icon={<Move size={20}/>} label="Pan (P)" active={activeTool === cornerstoneTools.PanTool.toolName} onClick={() => handleToolSelect(cornerstoneTools.PanTool.toolName)} />
+          
+          <Divider />
+
+          {/* Tools */}
+          <ToolButton icon={<Ruler size={20}/>} label="Length" active={activeTool === cornerstoneTools.LengthTool.toolName} onClick={() => handleToolSelect(cornerstoneTools.LengthTool.toolName)} />
+          <ToolButton icon={<MessageSquare size={20}/>} label="Annotate" active={activeTool === cornerstoneTools.ArrowAnnotateTool.toolName} onClick={() => handleToolSelect(cornerstoneTools.ArrowAnnotateTool.toolName)} />
+          <ToolButton icon={<Shapes size={20}/>} label="Angle" active={activeTool === cornerstoneTools.AngleTool.toolName} onClick={() => handleToolSelect(cornerstoneTools.AngleTool.toolName)} />
+          <ToolButton icon={<Circle size={20}/>} label="Ellipse" active={activeTool === cornerstoneTools.EllipticalROITool.toolName} onClick={() => handleToolSelect(cornerstoneTools.EllipticalROITool.toolName)} />
+          <ToolButton icon={<Square size={20}/>} label="Rectangle" active={activeTool === cornerstoneTools.RectangleROITool.toolName} onClick={() => handleToolSelect(cornerstoneTools.RectangleROITool.toolName)} />
+          <ToolButton icon={<Pointer size={20}/>} label="ROI" active={activeTool === cornerstoneTools.PlanarFreehandROITool.toolName} onClick={() => handleToolSelect(cornerstoneTools.PlanarFreehandROITool.toolName)} />
+          
+          <Divider />
+
+          {/* Advanced */}
+          <ToolButton icon={<Scan size={20}/>} label="Segment" onClick={() => alert('O Módulo de Segmentação 3D requer inicialização prévia de mapas de rótulos (Labelmaps). Faremos na próxima etapa se desejar continuar.')} />
+          <ToolButton icon={<Trash2 size={20}/>} label="Delete" onClick={() => {
+             // Simple delete implementation: clear all annotations
+             const annotationManager = cornerstoneTools.annotation.state.getAnnotationManager();
+             annotationManager.removeAllAnnotations();
+             const engine = cornerstone.getRenderingEngine('myRenderingEngine');
+             engine?.render();
+          }} />
+          <ToolButton icon={<MoreHorizontal size={20}/>} label="More" onClick={() => {}} />
+        </div>
+
+        {/* Right Actions (Laudar, Salvar) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '200px', justifyContent: 'flex-end' }}>
+            <button onClick={() => setIsReportPanelOpen(!isReportPanelOpen)} style={{ padding: '6px 12px', borderRadius: '4px', backgroundColor: 'transparent', color: isReportPanelOpen ? '#38bdf8' : '#a1a1aa', border: '1px solid #27272a', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+              {isReportPanelOpen ? 'Fechar' : 'Laudar'}
+            </button>
+            <button onClick={handleSaveAnnotations} style={{ padding: '6px 12px', borderRadius: '4px', backgroundColor: 'transparent', color: '#a1a1aa', border: '1px solid #27272a', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+              Salvar
+            </button>
+            <button onClick={() => navigate('/')} style={{ padding: '6px 12px', borderRadius: '4px', backgroundColor: 'transparent', color: '#ef4444', border: '1px solid #27272a', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+              Sair
+            </button>
+        </div>
       </div>
 
       {/* Content Area (Sidebar + Viewer) */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         
         {/* Sidebar de Séries */}
-        <div style={{ width: '280px', backgroundColor: '#111827', borderRight: '1px solid #374151', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-          <div style={{ padding: '16px', borderBottom: '1px solid #374151' }}>
-            <h3 style={{ margin: 0, fontSize: '1rem', color: '#e5e7eb' }}>Séries do Exame</h3>
+        {isSeriesListOpen && (
+          <div style={{ width: '280px', backgroundColor: '#111827', borderRight: '1px solid #374151', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+            <div style={{ padding: '16px', borderBottom: '1px solid #374151' }}>
+              <h3 style={{ margin: 0, fontSize: '1rem', color: '#e5e7eb' }}>Séries do Exame</h3>
+            </div>
+            <div style={{ padding: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {seriesList.map(series => (
+                <div 
+                  key={series.id}
+                  onClick={() => setActiveSeriesId(series.id)}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    padding: '8px',
+                    cursor: 'pointer',
+                    opacity: activeSeriesId === series.id ? 1 : 0.6,
+                    transition: 'all 0.2s',
+                    backgroundColor: activeSeriesId === series.id ? '#1f2937' : 'transparent',
+                    borderRadius: '8px'
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+                  onMouseLeave={(e) => (e.currentTarget.style.opacity = activeSeriesId === series.id ? '1' : '0.6')}
+                >
+                  {/* Thumbnail Box Placeholder */}
+                  <div style={{ 
+                    width: '100%', 
+                    height: '130px', 
+                    backgroundColor: '#000000', 
+                    border: activeSeriesId === series.id ? '2px solid #38bdf8' : '2px solid #374151', 
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    overflow: 'hidden'
+                  }}>
+                     <span style={{ color: '#4b5563', fontSize: '11px', fontWeight: 'bold' }}>{series.modality} Preview</span>
+                  </div>
+                  
+                  {/* Meta Info */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '4px' }}>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#f3f4f6', maxWidth: '65%', wordWrap: 'break-word', lineHeight: '1.2' }}>
+                      {series.series_description || 'Sem descrição'}
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', fontSize: '0.7rem', color: '#9ca3af', gap: '2px' }}>
+                      <div><span style={{ color: '#38bdf8', fontWeight: 'bold' }}>S:</span> {series.series_number !== null ? series.series_number : '?'}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <Layers size={12} color="#38bdf8" />
+                        <span>{series.id === activeSeriesId ? instances.length : '--'}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-          <div style={{ padding: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {seriesList.map(series => (
-              <div 
-                key={series.id}
-                onClick={() => setActiveSeriesId(series.id)}
-                style={{
-                  padding: '12px',
-                  backgroundColor: activeSeriesId === series.id ? '#1f2937' : 'transparent',
-                  border: activeSeriesId === series.id ? '1px solid #3b82f6' : '1px solid #374151',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-              >
-                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#f3f4f6' }}>{series.modality}</div>
-                <div style={{ fontSize: '0.75rem', color: '#9ca3af', marginTop: '4px' }}>{series.series_description || 'Sem descrição'}</div>
-              </div>
-            ))}
-          </div>
-        </div>
+        )}
 
         {/* Area do Visualizador */}
         <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }} onContextMenu={(e) => e.preventDefault()}>
@@ -625,10 +688,13 @@ export default function Viewer() {
           )}
 
           {viewMode === '2D' ? (
-            <div 
-              ref={viewerRef} 
-              style={{ width: '100%', height: '100%', outline: 'none' }}
-            />
+            <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+              <div ref={viewerRef} style={{ width: '100%', height: '100%', outline: 'none' }} />
+              <ViewportOverlay 
+                element={viewerRef.current} 
+                seriesDescription={activeSeriesId ? seriesList.find(s => s.id === activeSeriesId)?.series_description || seriesList.find(s => s.id === activeSeriesId)?.modality : ''} 
+              />
+            </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', width: '100%', height: '100%', backgroundColor: '#111827', gap: '2px', padding: '2px' }}>
               {/* Axial Viewport */}

@@ -112,6 +112,10 @@ Histórico do desenvolvimento passo-a-passo.
 - **Modos MPR/3D:** Implementação de grade de visualização 2x2 com planos Axial, Sagital e Coronal reconstruídos tridimensionalmente no Cornerstone3D.
 - **VR & MIP:** Adicionado suporte para renderização tridimensional de volume (Volume Rendering) e projeção de intensidade máxima (MIP) com controle de visualização integrado na Toolbar.
 
+### [ PENDENTE ] Etapa 26: Módulo de Segmentação 3D
+- **Frontend:** Configuração de estado de segmentação e instanciamento de "Labelmaps" no Cornerstone3D para viabilizar a ferramenta de Pincel (`BrushTool`).
+- **Recursos:** Permitir colorir e demarcar volumes anatômicos (tumores, órgãos) nos cortes tomográficos.
+
 ---
 
 ## 🛠 Como Iniciar o Desenvolvimento (Quickstart)

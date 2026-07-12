@@ -5,7 +5,8 @@ import * as cornerstoneTools from '@cornerstonejs/tools';
 import {
   LayoutGrid, ChevronUp, ChevronDown, Play, Film,
   Search, Contrast, Move, Ruler, MessageSquare,
-  Square, Circle, Shapes, Pointer, Scan, Trash2, MoreHorizontal, MousePointer2, Layers
+  Square, Circle, Shapes, Pointer, Scan, Trash2, MoreHorizontal, MousePointer2, Layers,
+  Video, VideoOff, Rewind, FastForward
 } from 'lucide-react';
 import { pacsService } from '../services/api';
 import initCornerstone from '../utils/initCornerstone';
@@ -68,7 +69,14 @@ export default function Viewer() {
   // UI States
   const [isSeriesListOpen, setIsSeriesListOpen] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
+  const fpsList = [2, 5, 10, 15, 20, 30];
+  const [fpsIndex, setFpsIndex] = useState(2); // 10 FPS default
+  const [isRecording, setIsRecording] = useState(false);
   const playIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
+  const cineSpeed = Math.round(1000 / fpsList[fpsIndex]);
 
   // Navigation Logic
   const navigateSlice = (direction: number) => {
@@ -91,13 +99,103 @@ export default function Viewer() {
       setIsPlaying(true);
       playIntervalRef.current = setInterval(() => {
         navigateSlice(1);
-      }, 100);
+      }, cineSpeed);
+    }
+  };
+
+  const speedUp = () => {
+    if (fpsIndex < fpsList.length - 1) {
+      const nextIndex = fpsIndex + 1;
+      setFpsIndex(nextIndex);
+      updatePlayInterval(nextIndex);
+    }
+  };
+
+  const slowDown = () => {
+    if (fpsIndex > 0) {
+      const prevIndex = fpsIndex - 1;
+      setFpsIndex(prevIndex);
+      updatePlayInterval(prevIndex);
+    }
+  };
+
+  const updatePlayInterval = (index: number) => {
+    if (isPlaying) {
+      if (playIntervalRef.current) clearInterval(playIntervalRef.current);
+      const interval = Math.round(1000 / fpsList[index]);
+      playIntervalRef.current = setInterval(() => {
+        navigateSlice(1);
+      }, interval);
+    }
+  };
+
+  const handleToggleRecording = () => {
+    if (isRecording) {
+      // Stop recording
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+      setIsRecording(false);
+    } else {
+      // Start recording
+      const canvas = viewerRef.current?.querySelector('canvas');
+      if (!canvas) {
+        alert('Não foi possível encontrar a tela de visualização para gravar.');
+        return;
+      }
+
+      try {
+        const stream = (canvas as any).captureStream ? (canvas as any).captureStream(fpsList[fpsIndex]) : (canvas as any).mozCaptureStream(fpsList[fpsIndex]);
+        chunksRef.current = [];
+        const options = { mimeType: 'video/webm;codecs=vp9' };
+        let recorder: MediaRecorder;
+        
+        try {
+          recorder = new MediaRecorder(stream, options);
+        } catch (e) {
+          recorder = new MediaRecorder(stream);
+        }
+
+        recorder.ondataavailable = (event) => {
+          if (event.data && event.data.size > 0) {
+            chunksRef.current.push(event.data);
+          }
+        };
+
+        recorder.onstop = () => {
+          const blob = new Blob(chunksRef.current, { type: 'video/webm' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `cine_${activeSeriesId || 'exame'}.webm`;
+          a.click();
+          URL.revokeObjectURL(url);
+        };
+
+        mediaRecorderRef.current = recorder;
+        recorder.start();
+        setIsRecording(true);
+
+        // Auto start playing if not already playing
+        if (!isPlaying) {
+          setIsPlaying(true);
+          playIntervalRef.current = setInterval(() => {
+            navigateSlice(1);
+          }, cineSpeed);
+        }
+      } catch (err) {
+        console.error('Erro ao iniciar a gravação:', err);
+        alert('Erro ao iniciar a gravação do CINE.');
+      }
     }
   };
 
   useEffect(() => {
     return () => {
       if (playIntervalRef.current) clearInterval(playIntervalRef.current);
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
     };
   }, []);
 
@@ -546,8 +644,15 @@ export default function Viewer() {
           <ToolButton icon={<LayoutGrid size={20}/>} label="Series" active={isSeriesListOpen} onClick={() => setIsSeriesListOpen(!isSeriesListOpen)} />
           <ToolButton icon={<ChevronUp size={20}/>} label="Previous" onClick={() => navigateSlice(-1)} />
           <ToolButton icon={<ChevronDown size={20}/>} label="Next" onClick={() => navigateSlice(1)} />
-          <ToolButton icon={<Play size={20}/>} label="Play" active={isPlaying} onClick={togglePlay} />
-          <ToolButton icon={<Film size={20}/>} label="CINE" onClick={() => alert('Controle de velocidade CINE em desenvolvimento.')} />
+          <ToolButton icon={<Play size={20}/>} label={`${isPlaying ? "Pausar" : "Play"} (${fpsList[fpsIndex]} FPS)`} active={isPlaying} onClick={togglePlay} />
+          <ToolButton icon={<Rewind size={20}/>} label="Lento" onClick={slowDown} disabled={fpsIndex === 0} />
+          <ToolButton icon={<FastForward size={20}/>} label="Rápido" onClick={speedUp} disabled={fpsIndex === fpsList.length - 1} />
+          <ToolButton 
+            icon={isRecording ? <VideoOff size={20} color="#ef4444" /> : <Video size={20} />} 
+            label={isRecording ? "Parar Gravação" : "Gravar CINE"} 
+            onClick={handleToggleRecording} 
+            active={isRecording}
+          />
           
           <Divider />
 
@@ -675,6 +780,19 @@ export default function Viewer() {
 
         {/* Area do Visualizador */}
         <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }} onContextMenu={(e) => e.preventDefault()}>
+          {isRecording && (
+            <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 30, display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(0,0,0,0.6)', padding: '6px 12px', borderRadius: '20px' }}>
+              <span style={{ width: '10px', height: '10px', backgroundColor: '#ef4444', borderRadius: '50%', display: 'inline-block', animation: 'rec-pulse 1.5s infinite' }} />
+              <span style={{ color: 'white', fontSize: '12px', fontWeight: 'bold', fontFamily: 'monospace' }}>REC</span>
+              <style>{`
+                @keyframes rec-pulse {
+                  0% { opacity: 0.3; }
+                  50% { opacity: 1; }
+                  100% { opacity: 0.3; }
+                }
+              `}</style>
+            </div>
+          )}
           {loading && (
             <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 10 }}>
               <p style={{ color: 'white' }}>Carregando Imagens DICOM...</p>

@@ -20,10 +20,6 @@ export default async function initCornerstone() {
   // 3. Configure DICOM image loader (Cornerstone3D / v5 approach)
   cornerstoneDICOMImageLoader.init({
     maxWebWorkers: navigator.hardwareConcurrency ? Math.max(1, Math.floor(navigator.hardwareConcurrency / 2)) : 1,
-  });
-
-  // Inject JWT Token for HTTP Requests
-  cornerstoneDICOMImageLoader.internal.setOptions({
     beforeSend: function (xhr: XMLHttpRequest) {
       const token = localStorage.getItem('token');
       if (token) {

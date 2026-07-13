@@ -112,9 +112,29 @@ Histórico do desenvolvimento passo-a-passo.
 - **Modos MPR/3D:** Implementação de grade de visualização 2x2 com planos Axial, Sagital e Coronal reconstruídos tridimensionalmente no Cornerstone3D.
 - **VR & MIP:** Adicionado suporte para renderização tridimensional de volume (Volume Rendering) e projeção de intensidade máxima (MIP) com controle de visualização integrado na Toolbar.
 
-### [ PENDENTE ] Etapa 26: Módulo de Segmentação 3D
+### [ CONCLUÍDO ] Etapa 26: Módulo de Segmentação 3D
 - **Frontend:** Configuração de estado de segmentação e instanciamento de "Labelmaps" no Cornerstone3D para viabilizar a ferramenta de Pincel (`BrushTool`).
 - **Recursos:** Permitir colorir e demarcar volumes anatômicos (tumores, órgãos) nos cortes tomográficos.
+
+### [ CONCLUÍDO ] Etapa 27: Sincronização Avançada de MPR (Crosshairs & Sync)
+- **Frontend:** Implementar `Synchronizers` do Cornerstone3D para conectar propriedades de câmera, nível de janela (W/L) e zoom através dos viewports Axiais, Sagitais e Coronais.
+- **Ferramentas:** Ativar a ferramenta `CrosshairsTool` para permitir navegação tridimensional sincronizada em tempo real clicando em qualquer corte MPR.
+
+### [ CONCLUÍDO ] Etapa 28: Thumbnails (Miniaturas) na Lista de Séries
+- **Frontend:** Atualizar o componente `<SeriesList>` para renderizar a fatia central de cada série utilizando o Cornerstone.
+- **Recursos:** Facilitar a identificação visual rápida de diferentes séries (ex: cortes ósseos vs tecidos moles).
+
+### [ CONCLUÍDO ] Etapa 29: Exportação de Laudo (PDF) com Imagens-Chave
+- **Frontend:** Adicionar ferramenta de "Câmera" para capturar screenshots (Imagens-chave) da visualização atual com anotações e medições.
+- **Backend:** Serviço de geração de PDF estruturado que mescla o texto do Rascunho Clínico com as imagens capturadas para criar o documento final.
+
+### [ PENDENTE ] Etapa 30: Sincronização Dinâmica (DicomWeb / WADO-RS)
+- **Infraestrutura:** Transição do modelo `wadouri` para transmissões orientadas a metadados (`WADO-RS`).
+- **Recursos:** Carregamento ultra rápido via streaming assíncrono para exames massivos, exibindo imagens progressivamente.
+
+### [ PENDENTE ] Etapa 31: MPR Oblíquo (Ferramenta Avançada)
+- **Frontend:** Atualizar as capacidades do `CrosshairsTool` para permitir rotação de eixos.
+- **Recursos:** Habilitar reconstruções MPR oblíquas duplas, essenciais para ortopedia e neurocirurgia.
 
 ---
 

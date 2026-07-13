@@ -15,9 +15,11 @@ import uuid
 from app.core.auth.deps import get_current_user
 
 from app.pacs.models import Patient, Study, Series, Instance, Annotation, Report
-from app.pacs.schemas import PatientResponse, StudyResponse, SeriesResponse, InstanceResponse, AnnotationCreate, AnnotationResponse, ReportCreate, ReportResponse, IntegrationPatientCreate, IntegrationOrderCreate
+from app.pacs.schemas import PatientResponse, StudyResponse, SeriesResponse, InstanceResponse, AnnotationCreate, AnnotationResponse, ReportCreate, ReportResponse, IntegrationPatientCreate, IntegrationOrderCreate, ReportExportRequest
 from datetime import date
 import asyncio
+from fpdf import FPDF
+import base64
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
@@ -215,6 +217,100 @@ async def get_study_report(
         raise HTTPException(status_code=404, detail="No report found for this study")
 
     return report
+
+@router.post("/studies/{study_id}/report/export")
+async def export_study_report(
+    study_id: UUID,
+    payload: ReportExportRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = select(Study).options(selectinload(Study.patient)).where(Study.id == study_id)
+    result = await db.execute(stmt)
+    study = result.scalar_one_or_none()
+    
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # Header
+    pdf.set_font("helvetica", "B", 16)
+    pdf.cell(0, 10, "CLÍNICA RADIOLÓGICA PACS", new_x="LMARGIN", new_y="NEXT", align="C")
+    
+    pdf.set_font("helvetica", "", 10)
+    pdf.cell(0, 10, "Relatório de Exame de Imagem", new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.ln(5)
+    
+    # Patient Info
+    pdf.set_font("helvetica", "B", 10)
+    pdf.cell(30, 8, "Paciente:")
+    pdf.set_font("helvetica", "", 10)
+    pdf.cell(0, 8, f"{study.patient.patient_name or 'N/A'}", new_x="LMARGIN", new_y="NEXT")
+    
+    pdf.set_font("helvetica", "B", 10)
+    pdf.cell(30, 8, "Data Exame:")
+    pdf.set_font("helvetica", "", 10)
+    pdf.cell(0, 8, f"{study.study_date or 'N/A'}", new_x="LMARGIN", new_y="NEXT")
+    
+    pdf.set_font("helvetica", "B", 10)
+    pdf.cell(30, 8, "Estudo ID:")
+    pdf.set_font("helvetica", "", 10)
+    pdf.cell(0, 8, f"{study.study_instance_uid}", new_x="LMARGIN", new_y="NEXT")
+    
+    pdf.line(10, pdf.get_y() + 2, 200, pdf.get_y() + 2)
+    pdf.ln(10)
+    
+    # Report Content
+    pdf.set_font("helvetica", "B", 12)
+    pdf.cell(0, 10, "LAUDO MÉDICO", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("helvetica", "", 11)
+    
+    # Write text supporting newlines
+    pdf.multi_cell(0, 6, payload.content.replace('\\n', '\n'))
+    
+    # Key Images
+    if payload.key_images:
+        pdf.add_page()
+        pdf.set_font("helvetica", "B", 12)
+        pdf.cell(0, 10, "ANEXO: IMAGENS-CHAVE", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(5)
+        
+        for idx, b64_str in enumerate(payload.key_images):
+            try:
+                # Add 2 images per page roughly
+                if idx > 0 and idx % 2 == 0:
+                    pdf.add_page()
+                    
+                # Ensure correct base64 format without prefix
+                if "," in b64_str:
+                    header, b64_data = b64_str.split(",", 1)
+                else:
+                    b64_data = b64_str
+                
+                img_data = base64.b64decode(b64_data)
+                img_stream = io.BytesIO(img_data)
+                
+                # FPDF2 supports BytesIO directly
+                pdf.image(img_stream, w=170)
+                pdf.ln(5)
+            except Exception as e:
+                pdf.set_font("helvetica", "", 10)
+                pdf.cell(0, 10, f"Erro ao processar imagem {idx+1}: {str(e)}", new_x="LMARGIN", new_y="NEXT")
+
+    pdf_buffer = io.BytesIO()
+    # Output to bytearray directly in fpdf2
+    pdf_bytes = pdf.output()
+    pdf_buffer.write(pdf_bytes)
+    pdf_buffer.seek(0)
+    
+    return StreamingResponse(
+        pdf_buffer,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=laudo_{study.patient.patient_name or 'paciente'}.pdf"
+        }
+    )
 
 # --- ARTIFICIAL INTELLIGENCE ---
 @router.post("/studies/{study_id}/ai-draft", response_model=ReportResponse)

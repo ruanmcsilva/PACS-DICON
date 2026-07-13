@@ -5,13 +5,16 @@ import * as cornerstoneTools from '@cornerstonejs/tools';
 import {
   LayoutGrid, ChevronUp, ChevronDown, Play, Film,
   Search, Contrast, Move, Ruler, MessageSquare,
-  Square, Circle, Shapes, Pointer, Scan, Trash2, MoreHorizontal, MousePointer2, Layers,
-  Video, VideoOff, Rewind, FastForward
+  Square, Circle, Shapes, Pointer, Scan, Trash2, MoreHorizontal, MousePointer2, Layers, Camera,
+  Video, VideoOff, Rewind, FastForward,
+  Crosshair, ZoomIn, AppWindow, Target, Link, Moon, RotateCcw, RotateCw, FlipHorizontal, FlipVertical, RefreshCcw
 } from 'lucide-react';
 import { pacsService } from '../services/api';
 import initCornerstone from '../utils/initCornerstone';
 import type { IInstance, ISeries } from '../types';
 import ViewportOverlay from './ViewportOverlay';
+import SeriesThumbnail from './SeriesThumbnail';
+import html2canvas from 'html2canvas';
 
 const Divider = () => <div style={{ width: '1px', height: '32px', backgroundColor: '#27272a', margin: '0 4px' }} />;
 
@@ -65,9 +68,18 @@ export default function Viewer() {
   const [reportContent, setReportContent] = useState("");
   const [reportStatus, setReportStatus] = useState<"DRAFT" | "FINAL">("DRAFT");
   const [generatingAi, setGeneratingAi] = useState(false);
+  const [keyImages, setKeyImages] = useState<string[]>([]);
+  const [showCameraFlash, setShowCameraFlash] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+
+  // Segmentation States
+  const [isSegmentationActive, setIsSegmentationActive] = useState(false);
+  const [brushSize, setBrushSize] = useState(15);
+  const [activeSegmentIndex, setActiveSegmentIndex] = useState(1);
 
   // UI States
   const [isSeriesListOpen, setIsSeriesListOpen] = useState(true);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const fpsList = [2, 5, 10, 15, 20, 30];
   const [fpsIndex, setFpsIndex] = useState(2); // 10 FPS default
@@ -75,8 +87,60 @@ export default function Viewer() {
   const playIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const moreButtonRef = useRef<HTMLDivElement>(null);
 
   const cineSpeed = Math.round(1000 / fpsList[fpsIndex]);
+
+  // Action Handlers
+  const handleReset = () => {
+    const engine = cornerstone.getRenderingEngine('myRenderingEngine');
+    if (!engine) return;
+    engine.getViewports().forEach(vp => {
+      vp.resetCamera();
+      vp.resetProperties();
+      vp.render();
+    });
+    setIsMoreMenuOpen(false);
+  };
+
+  const handleInvert = () => {
+    const engine = cornerstone.getRenderingEngine('myRenderingEngine');
+    if (!engine) return;
+    engine.getViewports().forEach(vp => {
+      const currentInvert = vp.getProperties().invert;
+      vp.setProperties({ invert: !currentInvert });
+      vp.render();
+    });
+    setIsMoreMenuOpen(false);
+  };
+
+  const handleRotate = (angle: number) => {
+    const engine = cornerstone.getRenderingEngine('myRenderingEngine');
+    if (!engine) return;
+    engine.getViewports().forEach(vp => {
+      if (vp.type === cornerstone.Enums.ViewportType.STACK) {
+        const currentRotation = vp.getProperties().rotation || 0;
+        vp.setProperties({ rotation: currentRotation + angle });
+        vp.render();
+      }
+    });
+    setIsMoreMenuOpen(false);
+  };
+
+  const handleFlip = (direction: 'H' | 'V') => {
+    const engine = cornerstone.getRenderingEngine('myRenderingEngine');
+    if (!engine) return;
+    engine.getViewports().forEach(vp => {
+      const props = vp.getProperties();
+      if (direction === 'H') {
+        vp.setProperties({ flipHorizontal: !props.flipHorizontal });
+      } else {
+        vp.setProperties({ flipVertical: !props.flipVertical });
+      }
+      vp.render();
+    });
+    setIsMoreMenuOpen(false);
+  };
 
   // Navigation Logic
   const navigateSlice = (direction: number) => {
@@ -219,7 +283,10 @@ export default function Viewer() {
       cornerstoneTools.RectangleROITool.toolName,
       cornerstoneTools.EllipticalROITool.toolName,
       cornerstoneTools.ArrowAnnotateTool.toolName,
-      cornerstoneTools.PlanarFreehandROITool.toolName
+      cornerstoneTools.PlanarFreehandROITool.toolName,
+      cornerstoneTools.MagnifyTool.toolName,
+      cornerstoneTools.CrosshairsTool.toolName,
+      cornerstoneTools.BrushTool.toolName
     ];
 
     primaryTools.forEach((tool) => {
@@ -234,10 +301,92 @@ export default function Viewer() {
         } else if (tool === cornerstoneTools.ZoomTool.toolName) {
           toolGroup.setToolActive(tool, { bindings: [{ mouseButton: cornerstoneTools.Enums.MouseBindings.Secondary }]});
         } else {
-          toolGroup.setToolPassive(tool);
+          if (tool === cornerstoneTools.CrosshairsTool.toolName && viewMode !== 'MPR_GRID') {
+            toolGroup.setToolDisabled(tool);
+          } else {
+            toolGroup.setToolPassive(tool);
+          }
         }
       }
     });
+  };
+
+  const handleCaptureImage = async () => {
+    // Shutter sound
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      oscillator.type = 'square';
+      oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.1);
+      gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.start();
+      oscillator.stop(audioCtx.currentTime + 0.1);
+    } catch (e) {
+      console.warn('AudioContext not supported');
+    }
+
+    // Camera flash effect
+    setShowCameraFlash(true);
+    setTimeout(() => setShowCameraFlash(false), 150);
+
+    let elementToCapture = null;
+    if (viewMode === '2D') {
+      elementToCapture = viewerRef.current;
+    } else if (viewMode === 'MPR_GRID') {
+      elementToCapture = axialRef.current?.parentElement;
+    }
+
+    if (elementToCapture) {
+      try {
+        const canvas = await html2canvas(elementToCapture as HTMLElement, {
+          backgroundColor: '#000000',
+          logging: false,
+          ignoreElements: (element) => element.id === 'camera-flash-overlay' // Don't capture the flash
+        });
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        setPreviewImage(dataUrl); // Show confirmation modal
+      } catch (err) {
+        console.error("Failed to capture image", err);
+        alert("Erro ao capturar a imagem. Tente novamente.");
+      }
+    }
+  };
+
+  const handleExportPDF = async () => {
+    if (!studyId) return;
+    try {
+      const response = await fetch(`http://localhost:8000/api/pacs/studies/${studyId}/report/export`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          content: reportContent,
+          key_images: keyImages
+        })
+      });
+
+      if (!response.ok) throw new Error("Failed to export PDF");
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `laudo_${studyId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao exportar PDF");
+    }
   };
 
   const handleSaveAnnotations = async () => {
@@ -283,6 +432,69 @@ export default function Viewer() {
       setGeneratingAi(false);
     }
   };
+
+  const handleInitializeSegmentation = async () => {
+    if (isSegmentationActive) return;
+
+    try {
+      const segmentationId = 'SEGMENTATION_1';
+      
+      if (viewMode === 'MPR_GRID') {
+        const volumeId = `cornerstoneUID:${activeSeriesId}`;
+        // Criar o labelmap derivado do volume principal para 3D
+        await cornerstone.volumeLoader.createAndCacheDerivedVolume(volumeId, {
+          volumeId: segmentationId,
+        });
+      }
+      // No modo 2D, o Cornerstone 5.x gerencia o labelmap automaticamente para a Stack.
+
+      // Adicionar a segmentação ao estado do CornerstoneTools
+      cornerstoneTools.segmentation.addSegmentations([
+        {
+          segmentationId,
+          representation: {
+            type: cornerstoneTools.Enums.SegmentationRepresentations.Labelmap,
+          },
+        },
+      ]);
+
+      // Adicionar a representação aos viewports de acordo com o modo
+      if (viewMode === 'MPR_GRID') {
+        await cornerstoneTools.segmentation.addLabelmapRepresentationToViewportMap({
+          'AXIAL': [{ segmentationId }],
+          'SAGITTAL': [{ segmentationId }],
+          'CORONAL': [{ segmentationId }],
+          '3D_VR': [{ segmentationId }]
+        });
+      } else {
+        await cornerstoneTools.segmentation.addSegmentationRepresentations('STACK', [
+          {
+            segmentationId,
+            type: cornerstoneTools.Enums.SegmentationRepresentations.Labelmap,
+          }
+        ]);
+      }
+
+      setIsSegmentationActive(true);
+      handleToolSelect(cornerstoneTools.BrushTool.toolName);
+      setIsMoreMenuOpen(false); // Fecha o menu More se estiver aberto
+    } catch (err) {
+      console.error("Erro ao inicializar segmentação:", err);
+      alert('Erro ao inicializar segmentação.');
+    }
+  };
+
+  // Efeito para sincronizar as configurações da Segmentação (Tamanho e Cor)
+  useEffect(() => {
+    if (isSegmentationActive) {
+      try {
+        cornerstoneTools.utilities.segmentation.setBrushSizeForToolGroup('STACK_TOOL_GROUP', brushSize);
+        cornerstoneTools.segmentation.segmentIndex.setActiveSegmentIndex('SEGMENTATION_1', activeSegmentIndex);
+      } catch (err) {
+        console.warn("Erro ao configurar brush size ou segment index:", err);
+      }
+    }
+  }, [brushSize, activeSegmentIndex, isSegmentationActive]);
 
   // Buscar a lista de séries do Estudo
   useEffect(() => {
@@ -446,6 +658,21 @@ export default function Viewer() {
           resizeObserver.observe(sagittalRef.current);
           resizeObserver.observe(coronalRef.current);
           resizeObserver.observe(vrRef.current);
+
+          // Synchronizers setup
+          const voiSynchronizerId = 'VOI_SYNCHRONIZER_ID';
+          const zoomPanSynchronizerId = 'ZOOM_PAN_SYNCHRONIZER_ID';
+
+          cornerstoneTools.SynchronizerManager.destroySynchronizer(voiSynchronizerId);
+          cornerstoneTools.SynchronizerManager.destroySynchronizer(zoomPanSynchronizerId);
+
+          const voiSynchronizer = cornerstoneTools.synchronizers.createVOISynchronizer(voiSynchronizerId);
+          const zoomPanSynchronizer = cornerstoneTools.synchronizers.createZoomPanSynchronizer(zoomPanSynchronizerId);
+
+          ['AXIAL', 'SAGITTAL', 'CORONAL'].forEach(vpId => {
+            voiSynchronizer.add({ renderingEngineId, viewportId: vpId });
+            zoomPanSynchronizer.add({ renderingEngineId, viewportId: vpId });
+          });
         }
 
         // 5. Setup Tools
@@ -461,6 +688,9 @@ export default function Viewer() {
         cornerstoneTools.addTool(cornerstoneTools.EllipticalROITool);
         cornerstoneTools.addTool(cornerstoneTools.ArrowAnnotateTool);
         cornerstoneTools.addTool(cornerstoneTools.PlanarFreehandROITool);
+        cornerstoneTools.addTool(cornerstoneTools.MagnifyTool);
+        cornerstoneTools.addTool(cornerstoneTools.CrosshairsTool);
+        cornerstoneTools.addTool(cornerstoneTools.BrushTool);
 
         // Remove old group if exists
         cornerstoneTools.ToolGroupManager.destroyToolGroup(toolGroupId);
@@ -478,6 +708,9 @@ export default function Viewer() {
           toolGroup.addTool(cornerstoneTools.EllipticalROITool.toolName);
           toolGroup.addTool(cornerstoneTools.ArrowAnnotateTool.toolName);
           toolGroup.addTool(cornerstoneTools.PlanarFreehandROITool.toolName);
+          toolGroup.addTool(cornerstoneTools.MagnifyTool.toolName);
+          toolGroup.addTool(cornerstoneTools.CrosshairsTool.toolName);
+          toolGroup.addTool(cornerstoneTools.BrushTool.toolName);
 
           toolGroup.setToolActive(cornerstoneTools.WindowLevelTool.toolName, {
             bindings: [{ mouseButton: cornerstoneTools.Enums.MouseBindings.Primary }],
@@ -500,6 +733,12 @@ export default function Viewer() {
           toolGroup.setToolPassive(cornerstoneTools.EllipticalROITool.toolName);
           toolGroup.setToolPassive(cornerstoneTools.ArrowAnnotateTool.toolName);
           toolGroup.setToolPassive(cornerstoneTools.PlanarFreehandROITool.toolName);
+          toolGroup.setToolPassive(cornerstoneTools.MagnifyTool.toolName);
+          // Only make CrosshairsTool passive if we are in MPR mode and have multiple viewports
+          if (viewMode === 'MPR_GRID') {
+            toolGroup.setToolPassive(cornerstoneTools.CrosshairsTool.toolName);
+          }
+          toolGroup.setToolPassive(cornerstoneTools.BrushTool.toolName);
 
           viewportIds.forEach(vpId => {
             toolGroup.addViewport(vpId, renderingEngineId);
@@ -569,6 +808,19 @@ export default function Viewer() {
               }
             }
             renderingEngine.render();
+            
+            // Fix: Initialize Crosshairs so it creates annotations and avoids mouseMoveCallback crash
+            try {
+              const crosshairsInstance = toolGroup.getToolInstance(cornerstoneTools.CrosshairsTool.toolName);
+              if (crosshairsInstance && typeof crosshairsInstance.computeToolCenter === 'function') {
+                // Short delay to ensure viewports are fully rendered before computing center
+                setTimeout(() => {
+                  crosshairsInstance.computeToolCenter();
+                }, 100);
+              }
+            } catch (e) {
+              console.warn("Could not initialize crosshairs:", e);
+            }
           }
 
         } catch (stackErr) {
@@ -596,6 +848,8 @@ export default function Viewer() {
         renderingEngine.destroy();
       }
       cornerstoneTools.ToolGroupManager.destroyToolGroup(toolGroupId);
+      cornerstoneTools.SynchronizerManager.destroySynchronizer('VOI_SYNCHRONIZER_ID');
+      cornerstoneTools.SynchronizerManager.destroySynchronizer('ZOOM_PAN_SYNCHRONIZER_ID');
     };
   }, [activeSeriesId, viewMode]);
 
@@ -691,7 +945,8 @@ export default function Viewer() {
           <Divider />
 
           {/* Advanced */}
-          <ToolButton icon={<Scan size={20}/>} label="Segment" onClick={() => alert('O Módulo de Segmentação 3D requer inicialização prévia de mapas de rótulos (Labelmaps). Faremos na próxima etapa se desejar continuar.')} />
+          <ToolButton icon={<Camera size={20}/>} label="Capture" onClick={handleCaptureImage} />
+          <ToolButton icon={<Scan size={20}/>} label="Segment" active={isSegmentationActive || activeTool === cornerstoneTools.BrushTool.toolName} onClick={isSegmentationActive ? () => handleToolSelect(cornerstoneTools.BrushTool.toolName) : handleInitializeSegmentation} />
           <ToolButton icon={<Trash2 size={20}/>} label="Delete" onClick={() => {
              // Simple delete implementation: clear all annotations
              const annotationManager = cornerstoneTools.annotation.state.getAnnotationManager();
@@ -699,11 +954,70 @@ export default function Viewer() {
              const engine = cornerstone.getRenderingEngine('myRenderingEngine');
              engine?.render();
           }} />
-          <ToolButton icon={<MoreHorizontal size={20}/>} label="More" onClick={() => {}} />
+          
+          <div ref={moreButtonRef} style={{ position: 'relative' }}>
+            <ToolButton icon={<MoreHorizontal size={20}/>} label="More" active={isMoreMenuOpen} onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)} />
+            
+            {isMoreMenuOpen && moreButtonRef.current && (
+              <div style={{
+                position: 'fixed',
+                top: moreButtonRef.current.getBoundingClientRect().bottom + 4,
+                right: window.innerWidth - moreButtonRef.current.getBoundingClientRect().right,
+                backgroundColor: '#000000', // Match OHIF secondary toolbar background
+                border: '1px solid #27272a',
+                borderRadius: '8px',
+                padding: '4px',
+                display: 'flex',
+                flexDirection: 'row',
+                flexWrap: 'nowrap',
+                gap: '2px',
+                zIndex: 100,
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5)'
+              }}>
+                <ToolButton icon={<Crosshair size={20}/>} label="Crosshairs" active={activeTool === cornerstoneTools.CrosshairsTool.toolName} onClick={() => { 
+                  if (viewMode !== 'MPR_GRID') {
+                    alert('Crosshairs requires MPR mode (multiple viewports) to function.');
+                  } else {
+                    handleToolSelect(cornerstoneTools.CrosshairsTool.toolName); 
+                  }
+                  setIsMoreMenuOpen(false); 
+                }} />
+                <ToolButton icon={<ZoomIn size={20}/>} label="Magnify (M)" active={activeTool === cornerstoneTools.MagnifyTool.toolName} onClick={() => { handleToolSelect(cornerstoneTools.MagnifyTool.toolName); setIsMoreMenuOpen(false); }} />
+                <ToolButton icon={<AppWindow size={20}/>} label="ROI Window (R)" onClick={() => { alert('ROI Window - Requer configuração avançada. Em breve!'); setIsMoreMenuOpen(false); }} />
+                <ToolButton icon={<Target size={20}/>} label="Probe" active={activeTool === cornerstoneTools.ProbeTool.toolName} onClick={() => { handleToolSelect(cornerstoneTools.ProbeTool.toolName); setIsMoreMenuOpen(false); }} />
+                <ToolButton icon={<Link size={20}/>} label="Sync Settings" onClick={() => { alert('Sincronizadores avançados de VOI e Zoom/Pan já estão ativados por padrão no modo 3D!'); setIsMoreMenuOpen(false); }} />
+                <ToolButton icon={<Moon size={20}/>} label="Invert (I)" onClick={handleInvert} />
+                <ToolButton icon={<RotateCcw size={20}/>} label="Left (<)" onClick={() => handleRotate(-90)} />
+                <ToolButton icon={<RotateCw size={20}/>} label="Right (>)" onClick={() => handleRotate(90)} />
+                <ToolButton icon={<FlipHorizontal size={20}/>} label="Flip H (H)" onClick={() => handleFlip('H')} />
+                <ToolButton icon={<FlipVertical size={20}/>} label="Flip V (V)" onClick={() => handleFlip('V')} />
+                <ToolButton icon={<RefreshCcw size={20}/>} label="Reset" onClick={handleReset} />
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Right Actions (Laudar, Salvar) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', width: '200px', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
+            
+            {/* Controles de Segmentação (Apenas se ativa) */}
+            {isSegmentationActive && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 8px', borderRight: '1px solid #27272a' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <label style={{ fontSize: '12px', color: '#a1a1aa' }}>Brush:</label>
+                  <input type="range" min="2" max="50" value={brushSize} onChange={(e) => setBrushSize(parseInt(e.target.value))} style={{ width: '60px' }} />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <label style={{ fontSize: '12px', color: '#a1a1aa' }}>Órgão:</label>
+                  <select value={activeSegmentIndex} onChange={(e) => setActiveSegmentIndex(parseInt(e.target.value))} style={{ backgroundColor: '#18181b', color: 'white', border: '1px solid #3f3f46', borderRadius: '4px', fontSize: '12px', padding: '2px 4px' }}>
+                    <option value={1}>1 (Vermelho)</option>
+                    <option value={2}>2 (Verde)</option>
+                    <option value={3}>3 (Azul)</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
             <button onClick={() => setIsReportPanelOpen(!isReportPanelOpen)} style={{ padding: '6px 12px', borderRadius: '4px', backgroundColor: 'transparent', color: isReportPanelOpen ? '#38bdf8' : '#a1a1aa', border: '1px solid #27272a', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
               {isReportPanelOpen ? 'Fechar' : 'Laudar'}
             </button>
@@ -744,20 +1058,8 @@ export default function Viewer() {
                   onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
                   onMouseLeave={(e) => (e.currentTarget.style.opacity = activeSeriesId === series.id ? '1' : '0.6')}
                 >
-                  {/* Thumbnail Box Placeholder */}
-                  <div style={{ 
-                    width: '100%', 
-                    height: '130px', 
-                    backgroundColor: '#000000', 
-                    border: activeSeriesId === series.id ? '2px solid #38bdf8' : '2px solid #374151', 
-                    borderRadius: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    overflow: 'hidden'
-                  }}>
-                     <span style={{ color: '#4b5563', fontSize: '11px', fontWeight: 'bold' }}>{series.modality} Preview</span>
-                  </div>
+                  {/* Thumbnail Box */}
+                  <SeriesThumbnail seriesId={series.id} active={activeSeriesId === series.id} />
                   
                   {/* Meta Info */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '4px' }}>
@@ -780,6 +1082,21 @@ export default function Viewer() {
 
         {/* Area do Visualizador */}
         <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }} onContextMenu={(e) => e.preventDefault()}>
+          
+          {/* Câmera Flash Effect */}
+          <div 
+            id="camera-flash-overlay"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              backgroundColor: 'white',
+              zIndex: 9999,
+              opacity: showCameraFlash ? 0.8 : 0,
+              pointerEvents: 'none',
+              transition: 'opacity 0.1s ease-out'
+            }} 
+          />
+
           {isRecording && (
             <div style={{ position: 'absolute', top: '16px', right: '16px', zIndex: 30, display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'rgba(0,0,0,0.6)', padding: '6px 12px', borderRadius: '20px' }}>
               <span style={{ width: '10px', height: '10px', backgroundColor: '#ef4444', borderRadius: '50%', display: 'inline-block', animation: 'rec-pulse 1.5s infinite' }} />
@@ -874,18 +1191,35 @@ export default function Viewer() {
               >
                 {generatingAi ? '⏳ Analisando com I.A...' : '✨ Gerar Pré-laudo com I.A.'}
               </button>
-              <button 
-                onClick={handleSaveReport}
-                style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: '#10b981', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 600 }}
-              >
-                Salvar Laudo
-              </button>
-              <button 
-                onClick={handlePrint}
-                style={{ width: '100%', padding: '12px', borderRadius: '8px', backgroundColor: '#3b82f6', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 600 }}
-              >
-                🖨️ Exportar PDF / Imprimir
-              </button>
+
+              {keyImages.length > 0 && (
+                <div style={{ marginTop: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <div style={{ width: '100%', fontSize: '0.8rem', color: '#a1a1aa' }}>Imagens-Chave ({keyImages.length})</div>
+                  {keyImages.map((img, idx) => (
+                    <div key={idx} style={{ position: 'relative', width: '60px', height: '60px' }}>
+                      <img src={img} alt={`Key ${idx}`} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px', border: '1px solid #3f3f46' }} />
+                      <button 
+                        onClick={() => setKeyImages(prev => prev.filter((_, i) => i !== idx))}
+                        style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '16px', height: '16px', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        &times;
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '8px', marginTop: '16px' }}>
+                <button 
+                  onClick={handleExportPDF}
+                  style={{ flex: 1, padding: '12px', borderRadius: '8px', backgroundColor: '#eab308', color: 'black', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                  Exportar PDF
+                </button>
+                <button 
+                  onClick={() => handleSaveReport("FINAL")}
+                  style={{ flex: 1, padding: '12px', borderRadius: '8px', backgroundColor: '#38bdf8', color: 'black', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                  Salvar Laudo
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -918,6 +1252,34 @@ export default function Viewer() {
           </div>
         </div>
       </div>
+
+      {/* Image Preview Modal */}
+      {previewImage && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 10000, backgroundColor: 'rgba(0,0,0,0.9)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <h2 style={{ color: 'white', marginBottom: '20px' }}>Confirme a Captura de Imagem</h2>
+          <img src={previewImage} alt="Preview" style={{ maxWidth: '80%', maxHeight: '70vh', borderRadius: '8px', border: '2px solid #38bdf8' }} />
+          
+          <div style={{ display: 'flex', gap: '16px', marginTop: '24px' }}>
+            <button 
+              onClick={() => setPreviewImage(null)}
+              style={{ padding: '12px 24px', borderRadius: '8px', backgroundColor: '#ef4444', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '16px' }}>
+              ❌ Descartar
+            </button>
+            <button 
+              onClick={() => {
+                setKeyImages(prev => [...prev, previewImage]);
+                setPreviewImage(null);
+                setIsReportPanelOpen(true);
+              }}
+              style={{ padding: '12px 24px', borderRadius: '8px', backgroundColor: '#10b981', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '16px' }}>
+              ✅ Confirmar e Anexar
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

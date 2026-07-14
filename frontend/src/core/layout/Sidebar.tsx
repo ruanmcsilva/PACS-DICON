@@ -1,5 +1,9 @@
+import { Link, useLocation } from 'react-router-dom';
 
 const Sidebar = () => {
+  const location = useLocation();
+  const currentPath = location.pathname;
+
   return (
     <nav className="sidebar glass-panel">
       <div className="sidebar-logo">
@@ -15,27 +19,27 @@ const Sidebar = () => {
       </div>
       
       <div className="sidebar-nav">
-        <a href="#" className="nav-item active">
+        <Link to="/" className={`nav-item ${currentPath === '/' ? 'active' : ''}`}>
           Worklist (Exames)
-        </a>
-        <a href="#" className="nav-item">
-          Viewer (Imagens)
-        </a>
-        <a href="#" className="nav-item">
+        </Link>
+        <Link to="/videos" className={`nav-item ${currentPath === '/videos' ? 'active' : ''}`}>
+          Vídeos (CINE)
+        </Link>
+        <Link to="/reports" className={`nav-item ${currentPath === '/reports' ? 'active' : ''}`}>
           Laudos (Reports)
-        </a>
-        <a href="#" className="nav-item">
+        </Link>
+        <span className="nav-item" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
           Integração HL7
-        </a>
+        </span>
       </div>
       
       {/* Spacer to push admin to bottom */}
       <div style={{ flex: 1 }}></div>
 
       <div className="sidebar-nav" style={{ paddingBottom: '24px' }}>
-        <a href="#" className="nav-item">
+        <span className="nav-item" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
           Configurações
-        </a>
+        </span>
       </div>
     </nav>
   );

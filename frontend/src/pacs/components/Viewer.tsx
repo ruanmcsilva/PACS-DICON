@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { pacsService } from '../services/api';
 import initCornerstone from '../utils/initCornerstone';
-import type { IInstance, ISeries } from '../types';
+import type { IInstance, ISeries, IStudy } from '../types';
 import ViewportOverlay from './ViewportOverlay';
 import SeriesThumbnail from './SeriesThumbnail';
 import html2canvas from 'html2canvas';
@@ -71,6 +71,7 @@ export default function Viewer() {
   const [keyImages, setKeyImages] = useState<string[]>([]);
   const [showCameraFlash, setShowCameraFlash] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [study, setStudy] = useState<IStudy | null>(null);
 
   // Segmentation States
   const [isSegmentationActive, setIsSegmentationActive] = useState(false);
@@ -88,6 +89,11 @@ export default function Viewer() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const moreButtonRef = useRef<HTMLDivElement>(null);
+  
+  // Video Modal States
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const [storedVideoUrl, setStoredVideoUrl] = useState<string | null>(null);
+  const [loadingVideo, setLoadingVideo] = useState(false);
 
   const cineSpeed = Math.round(1000 / fpsList[fpsIndex]);
 
@@ -226,18 +232,24 @@ export default function Viewer() {
           }
         };
 
-        recorder.onstop = () => {
+        recorder.onstop = async () => {
           const blob = new Blob(chunksRef.current, { type: 'video/webm' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `cine_${activeSeriesId || 'exame'}.webm`;
-          a.click();
-          URL.revokeObjectURL(url);
+          if (activeSeriesId) {
+            try {
+              // Upload the video to backend storage
+              const response = await pacsService.uploadSeriesVideo(activeSeriesId, blob);
+              // Update local seriesList state with new video_path
+              setSeriesList(prev => prev.map(s => s.id === activeSeriesId ? { ...s, video_path: response.video_path } : s));
+              alert("Gravação CINE enviada e armazenada no servidor com sucesso!");
+            } catch (err) {
+              console.error("Erro ao enviar a gravação:", err);
+              alert("A gravação foi concluída, mas ocorreu um erro ao salvá-la no servidor.");
+            }
+          }
         };
 
         mediaRecorderRef.current = recorder;
-        recorder.start();
+        recorder.start(250);
         setIsRecording(true);
 
         // Auto start playing if not already playing
@@ -251,6 +263,40 @@ export default function Viewer() {
         console.error('Erro ao iniciar a gravação:', err);
         alert('Erro ao iniciar a gravação do CINE.');
       }
+    }
+  };
+
+  const handlePlayStoredVideo = async () => {
+    if (!activeSeriesId) return;
+    try {
+      setLoadingVideo(true);
+      const videoBlob = await pacsService.getSeriesVideo(activeSeriesId);
+      const url = URL.createObjectURL(videoBlob);
+      setStoredVideoUrl(url);
+      setIsVideoModalOpen(true);
+    } catch (err) {
+      console.error("Erro ao carregar o vídeo:", err);
+      alert("Não foi possível reproduzir a gravação deste exame.");
+    } finally {
+      setLoadingVideo(false);
+    }
+  };
+
+  const handleDeleteStoredVideo = async () => {
+    if (!activeSeriesId) return;
+    if (!window.confirm("Deseja realmente excluir a gravação armazenada para esta série?")) return;
+    try {
+      await pacsService.deleteSeriesVideo(activeSeriesId);
+      setSeriesList(prev => prev.map(s => s.id === activeSeriesId ? { ...s, video_path: null } : s));
+      if (storedVideoUrl) {
+        URL.revokeObjectURL(storedVideoUrl);
+        setStoredVideoUrl(null);
+      }
+      setIsVideoModalOpen(false);
+      alert("Gravação excluída com sucesso.");
+    } catch (err) {
+      console.error("Erro ao excluir gravação:", err);
+      alert("Não foi possível excluir a gravação.");
     }
   };
 
@@ -496,6 +542,20 @@ export default function Viewer() {
     }
   }, [brushSize, activeSegmentIndex, isSegmentationActive]);
 
+  // Buscar detalhes do Estudo para obter o study_instance_uid
+  useEffect(() => {
+    const fetchStudyDetails = async () => {
+      try {
+        if (!studyId) return;
+        const data = await pacsService.getStudy(studyId);
+        setStudy(data);
+      } catch (err) {
+        console.error("Erro ao buscar detalhes do estudo", err);
+      }
+    };
+    fetchStudyDetails();
+  }, [studyId]);
+
   // Buscar a lista de séries do Estudo
   useEffect(() => {
     const fetchSeries = async () => {
@@ -547,6 +607,12 @@ export default function Viewer() {
 
     const setupViewer = async () => {
       try {
+        console.log("[setupViewer] Running setupViewer", {
+          activeSeriesId,
+          study,
+          seriesCount: seriesList.length
+        });
+
         if (!activeSeriesId) return;
 
         // 1. Fetch instances from backend
@@ -560,9 +626,22 @@ export default function Viewer() {
           return;
         }
 
-        // 2. Format Image IDs for cornerstone (using wadouri scheme)
+        // 2. Format Image IDs for cornerstone (using wadors scheme)
+        const studyUid = study?.study_instance_uid;
+        const activeSeries = seriesList.find(s => s.id === activeSeriesId);
+        const seriesUid = activeSeries?.series_instance_uid;
+
+        console.log("[setupViewer] UIDs resolved:", { studyUid, seriesUid });
+
+        if (!studyUid || !seriesUid) {
+          console.warn("Faltando StudyInstanceUID ou SeriesInstanceUID, aguardando...");
+          return;
+        }
+
         const baseUrl = "http://localhost:8000";
-        const imageIds = data.map(inst => `wadouri:${baseUrl}/api/pacs/instances/${inst.id}/file`);
+        const imageIds = data.map(inst => 
+          `wadouri:${baseUrl}/api/dicom-web/studies/${studyUid}/series/${seriesUid}/instances/${inst.sop_instance_uid}`
+        );
 
         // 3. Initialize Cornerstone
         await initCornerstone();
@@ -851,7 +930,7 @@ export default function Viewer() {
       cornerstoneTools.SynchronizerManager.destroySynchronizer('VOI_SYNCHRONIZER_ID');
       cornerstoneTools.SynchronizerManager.destroySynchronizer('ZOOM_PAN_SYNCHRONIZER_ID');
     };
-  }, [activeSeriesId, viewMode]);
+  }, [activeSeriesId, viewMode, study, seriesList]);
 
   // Efeito dinâmico para alternar o BlendMode do Viewport 3D sem recarregar a engine
   useEffect(() => {
@@ -880,6 +959,9 @@ export default function Viewer() {
     }
   }, [mipBlendMode, viewMode, activeSeriesId]);
 
+  const activeSeries = activeSeriesId ? seriesList.find(s => s.id === activeSeriesId) : null;
+  const hasStoredVideo = !!activeSeries?.video_path;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', backgroundColor: 'black', color: 'white', position: 'absolute', top: 0, left: 0, zIndex: 50 }}>
       {/* Toolbar - OHIF Style */}
@@ -907,6 +989,14 @@ export default function Viewer() {
             onClick={handleToggleRecording} 
             active={isRecording}
           />
+          {hasStoredVideo && (
+            <ToolButton 
+              icon={<Film size={20} />} 
+              label={loadingVideo ? "Carregando..." : "Assistir CINE"} 
+              onClick={handlePlayStoredVideo} 
+              active={isVideoModalOpen}
+            />
+          )}
           
           <Divider />
 
@@ -1059,7 +1149,12 @@ export default function Viewer() {
                   onMouseLeave={(e) => (e.currentTarget.style.opacity = activeSeriesId === series.id ? '1' : '0.6')}
                 >
                   {/* Thumbnail Box */}
-                  <SeriesThumbnail seriesId={series.id} active={activeSeriesId === series.id} />
+                  <SeriesThumbnail 
+                    seriesId={series.id} 
+                    seriesInstanceUid={series.series_instance_uid}
+                    studyInstanceUid={study?.study_instance_uid || ''}
+                    active={activeSeriesId === series.id} 
+                  />
                   
                   {/* Meta Info */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '4px' }}>
@@ -1277,6 +1372,76 @@ export default function Viewer() {
               style={{ padding: '12px 24px', borderRadius: '8px', backgroundColor: '#10b981', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '16px' }}>
               ✅ Confirmar e Anexar
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Video Preview / Playback Modal */}
+      {isVideoModalOpen && storedVideoUrl && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 10000, backgroundColor: 'rgba(0,0,0,0.85)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          backdropFilter: 'blur(8px)'
+        }}>
+          <div style={{
+            backgroundColor: '#18181b', borderRadius: '12px', border: '1px solid #27272a',
+            padding: '24px', width: '90%', maxWidth: '640px', display: 'flex', flexDirection: 'column', gap: '20px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, color: 'white', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Film size={20} color="#38bdf8" />
+                Gravação CINE Armazenada
+              </h3>
+              <button 
+                onClick={() => {
+                  setIsVideoModalOpen(false);
+                  if (storedVideoUrl) {
+                    URL.revokeObjectURL(storedVideoUrl);
+                    setStoredVideoUrl(null);
+                  }
+                }} 
+                style={{ background: 'transparent', border: 'none', color: '#a1a1aa', cursor: 'pointer', fontSize: '1.2rem' }}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div style={{ position: 'relative', width: '100%', aspectRatio: '16/10', backgroundColor: 'black', borderRadius: '8px', overflow: 'hidden', border: '1px solid #27272a' }}>
+              <video 
+                src={storedVideoUrl} 
+                controls 
+                autoPlay 
+                loop 
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+              />
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '16px' }}>
+              <button 
+                onClick={handleDeleteStoredVideo}
+                style={{ padding: '8px 16px', borderRadius: '8px', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Trash2 size={16} /> Excluir
+              </button>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <a 
+                  href={storedVideoUrl}
+                  download={`cine_${activeSeriesId}.webm`}
+                  style={{ padding: '8px 16px', borderRadius: '8px', backgroundColor: 'transparent', color: '#a1a1aa', border: '1px solid #27272a', textDecoration: 'none', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  Baixar Vídeo
+                </a>
+                <button 
+                  onClick={() => {
+                    setIsVideoModalOpen(false);
+                    if (storedVideoUrl) {
+                      URL.revokeObjectURL(storedVideoUrl);
+                      setStoredVideoUrl(null);
+                    }
+                  }}
+                  style={{ padding: '8px 24px', borderRadius: '8px', backgroundColor: '#38bdf8', color: 'black', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                  Fechar
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -25,6 +25,7 @@ export interface ISeries {
     series_number: number | null;
     series_description: string | null;
     study_id: string;
+    video_path?: string | null;
 }
 
 export interface IInstance {

@@ -1,13 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as cornerstone from '@cornerstonejs/core';
 import { pacsService } from '../services/api';
+import initCornerstone from '../utils/initCornerstone';
 
 interface SeriesThumbnailProps {
   seriesId: string;
+  seriesInstanceUid: string;
+  studyInstanceUid: string;
   active: boolean;
 }
 
-const SeriesThumbnail: React.FC<SeriesThumbnailProps> = ({ seriesId, active }) => {
+const SeriesThumbnail: React.FC<SeriesThumbnailProps> = ({ seriesId, seriesInstanceUid, studyInstanceUid, active }) => {
   const thumbnailRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -35,9 +38,17 @@ const SeriesThumbnail: React.FC<SeriesThumbnailProps> = ({ seriesId, active }) =
         const targetInstance = instances[midIndex];
         
         const baseUrl = "http://localhost:8000";
-        const imageId = `wadouri:${baseUrl}/api/pacs/instances/${targetInstance.id}/file`;
+        let imageId = "";
+        if (studyInstanceUid && seriesInstanceUid) {
+          imageId = `wadouri:${baseUrl}/api/dicom-web/studies/${studyInstanceUid}/series/${seriesInstanceUid}/instances/${targetInstance.sop_instance_uid}`;
+        } else {
+          imageId = `wadouri:${baseUrl}/api/pacs/instances/${targetInstance.id}/file`;
+        }
 
-        // Pre-load the image to cache
+        // Initialize Cornerstone and pre-load the image to cache
+        await initCornerstone();
+        if (!isMounted) return;
+
         await cornerstone.imageLoader.loadAndCacheImage(imageId);
         if (!isMounted) return;
 
@@ -79,7 +90,7 @@ const SeriesThumbnail: React.FC<SeriesThumbnailProps> = ({ seriesId, active }) =
         renderingEngine.destroy();
       }
     };
-  }, [seriesId]);
+  }, [seriesId, studyInstanceUid, seriesInstanceUid]);
 
   return (
     <div style={{ 

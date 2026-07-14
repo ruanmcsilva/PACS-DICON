@@ -40,6 +40,11 @@ export const pacsService = {
         return response.data;
     },
 
+    async getStudy(studyId: string): Promise<IStudy> {
+        const response = await api.get<IStudy>(`/pacs/studies/${studyId}`);
+        return response.data;
+    },
+
     async getPatients(skip: number = 0, limit: number = 100): Promise<IPatient[]> {
         const response = await api.get<IPatient[]>('/pacs/patients', {
             params: { skip, limit }
@@ -106,6 +111,40 @@ export const pacsService = {
                 'Content-Type': 'application/x-www-form-urlencoded'
             }
         });
+        return response.data;
+    },
+
+    async uploadSeriesVideo(seriesId: string, videoBlob: Blob): Promise<any> {
+        const formData = new FormData();
+        formData.append('file', videoBlob, `cine_${seriesId}.webm`);
+        
+        const response = await api.post(`/pacs/series/${seriesId}/video`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+        return response.data;
+    },
+
+    async getSeriesVideo(seriesId: string): Promise<Blob> {
+        const response = await api.get(`/pacs/series/${seriesId}/video`, {
+            responseType: 'blob'
+        });
+        return response.data;
+    },
+
+    async deleteSeriesVideo(seriesId: string): Promise<any> {
+        const response = await api.delete(`/pacs/series/${seriesId}/video`);
+        return response.data;
+    },
+
+    async getSeriesWithVideos(): Promise<any[]> {
+        const response = await api.get<any[]>('/pacs/videos');
+        return response.data;
+    },
+
+    async getReports(): Promise<any[]> {
+        const response = await api.get<any[]>('/pacs/reports');
         return response.data;
     }
 };

@@ -136,6 +136,37 @@ Histórico do desenvolvimento passo-a-passo.
 - **Frontend:** Atualizada a configuração do `CrosshairsTool` para habilitar manipulação mobile e rotação livre dos eixos.
 - **Recursos:** Habilitadas reconstruções MPR oblíquas duplas, essenciais para ortopedia e neurocirurgia através do arrasto dos eixos nos viewports ortogonais.
 
+### [ PENDENTE ] Fase 4: Integração de Rede DICOM (Comunicação com Aparelhos)
+
+Para atender ao cliente e realizar os testes práticos de rede (IP, Porta, AETitle), iniciaremos o desenvolvimento destas etapas:
+
+#### [ PENDENTE ] Etapa 32: Validação do DICOM Listener e Handshake (C-ECHO)
+- **Objetivo:** Garantir que o PACS consiga responder a "Pings" (C-ECHO) vindos dos equipamentos médicos (Modalidades) na rede do hospital.
+- **Backend:** 
+  - Confirmar a inicialização do SCP (Service Class Provider) via `pynetdicom` rodando estavelmente em uma porta específica (ex: `11112`).
+  - Fixar o identificador `AETitle` do servidor (ex: `PACS_ENTERPRISE`).
+  - Adicionar logs detalhados de handshake para auditar IPs de origem.
+
+#### [ PENDENTE ] Etapa 33: Recepção Definitiva de Arquivos (C-STORE SCP)
+- **Objetivo:** Configurar o sistema para aceitar e guardar as imagens que o aparelho médico "empurrar" durante um exame real.
+- **Backend:** 
+  - Implementar o handler do evento `evt.EVT_C_STORE` na biblioteca.
+  - Gravar os dados binários do DICOM recebido em um arquivo físico temporário assim que chegarem.
+  - Enviar resposta de sucesso (Status `0x0000`) imediata para o aparelho não dar *timeout*.
+
+#### [ PENDENTE ] Etapa 34: Pipeline Assíncrono de Processamento (Fila)
+- **Objetivo:** Não travar o servidor quando a máquina mandar milhares de imagens simultâneas (ex: Tomografia).
+- **Backend / Workers:** 
+  - Após receber o DICOM (Etapa 33), enviar uma mensagem para a fila (RabbitMQ) informando que um arquivo novo chegou.
+  - O "Worker" (consumidor em background) irá ler a imagem, extrair os dados do paciente/estudo, salvar permanentemente no storage (MinIO) e registrar tudo no banco de dados (PostgreSQL).
+  - Assim, a imagem recém-recebida aparece instantaneamente na lista de pacientes (Worklist) do sistema Web.
+
+#### [ PENDENTE ] Etapa 35: Painel de Monitoramento de Tráfego (Frontend)
+- **Objetivo:** Fornecer feedback visual das integrações em andamento (essencial para técnicos e clientes).
+- **Frontend:** 
+  - Criar aba "Logs de Conexão DICOM".
+  - Listar transferências ativas (Ex: "Recebendo imagens do aparelho de Tomografia da Sala 1").
+
 ---
 
 ## 🛠 Como Iniciar o Desenvolvimento (Quickstart)

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as cornerstone from '@cornerstonejs/core';
 import { pacsService } from '../services/api';
 import initCornerstone from '../utils/initCornerstone';
+import cornerstoneDICOMImageLoader from '@cornerstonejs/dicom-image-loader';
 
 interface SeriesThumbnailProps {
   seriesId: string;
@@ -40,7 +41,7 @@ const SeriesThumbnail: React.FC<SeriesThumbnailProps> = ({ seriesId, seriesInsta
         const baseUrl = "http://localhost:8000";
         let imageId = "";
         if (studyInstanceUid && seriesInstanceUid) {
-          imageId = `wadouri:${baseUrl}/api/dicom-web/studies/${studyInstanceUid}/series/${seriesInstanceUid}/instances/${targetInstance.sop_instance_uid}`;
+          imageId = `wadors:${baseUrl}/api/dicom-web/studies/${studyInstanceUid}/series/${seriesInstanceUid}/instances/${targetInstance.sop_instance_uid}/frames/1`;
         } else {
           imageId = `wadouri:${baseUrl}/api/pacs/instances/${targetInstance.id}/file`;
         }
@@ -48,6 +49,22 @@ const SeriesThumbnail: React.FC<SeriesThumbnailProps> = ({ seriesId, seriesInsta
         // Initialize Cornerstone and pre-load the image to cache
         await initCornerstone();
         if (!isMounted) return;
+        
+        if (imageId.startsWith("wadors:")) {
+          try {
+            const res = await fetch(`${baseUrl}/api/dicom-web/studies/${studyInstanceUid}/series/${seriesInstanceUid}/metadata`, {
+              headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
+            const metadataArray = await res.json();
+            // find the metadata for our specific instance
+            const myMeta = metadataArray.find((m: any) => m["00080018"]?.Value?.[0] === targetInstance.sop_instance_uid);
+            if (myMeta) {
+              cornerstoneDICOMImageLoader.wadors.metaDataManager.add(imageId, myMeta);
+            }
+          } catch (e) {
+            console.error("Error fetching WADO-RS metadata for thumbnail:", e);
+          }
+        }
 
         await cornerstone.imageLoader.loadAndCacheImage(imageId);
         if (!isMounted) return;

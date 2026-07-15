@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 QUEUE_NAME = "pacs_metadata_queue"
 
-async def publish_metadata_task(file_name: str):
+async def publish_metadata_task(file_name: str, temp_path: str = None):
     """
     Publish a message to RabbitMQ indicating a new DICOM file needs metadata extraction.
     """
@@ -19,7 +19,10 @@ async def publish_metadata_task(file_name: str):
             # Ensure the queue exists
             queue = await channel.declare_queue(QUEUE_NAME, durable=True)
             
-            message_body = json.dumps({"file_name": file_name}).encode('utf-8')
+            payload = {"file_name": file_name}
+            if temp_path:
+                payload["temp_path"] = temp_path
+            message_body = json.dumps(payload).encode('utf-8')
             
             await channel.default_exchange.publish(
                 aio_pika.Message(

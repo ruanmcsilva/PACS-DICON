@@ -34,6 +34,7 @@ class SeriesBase(BaseModel):
     modality: str
     series_number: Optional[int] = None
     series_description: Optional[str] = None
+    video_path: Optional[str] = None
 
 class SeriesResponse(SeriesBase):
     id: UUID

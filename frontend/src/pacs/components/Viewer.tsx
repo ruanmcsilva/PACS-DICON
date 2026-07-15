@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import * as cornerstone from '@cornerstonejs/core';
 import * as cornerstoneTools from '@cornerstonejs/tools';
+import cornerstoneDICOMImageLoader from '@cornerstonejs/dicom-image-loader';
 import {
   LayoutGrid, ChevronUp, ChevronDown, Play, Film,
   Search, Contrast, Move, Ruler, MessageSquare,
@@ -640,7 +641,7 @@ export default function Viewer() {
 
         const baseUrl = "http://localhost:8000";
         const imageIds = data.map(inst => 
-          `wadouri:${baseUrl}/api/dicom-web/studies/${studyUid}/series/${seriesUid}/instances/${inst.sop_instance_uid}`
+          `wadors:${baseUrl}/api/dicom-web/studies/${studyUid}/series/${seriesUid}/instances/${inst.sop_instance_uid}/frames/1`
         );
 
         // 3. Initialize Cornerstone
@@ -788,7 +789,20 @@ export default function Viewer() {
           toolGroup.addTool(cornerstoneTools.ArrowAnnotateTool.toolName);
           toolGroup.addTool(cornerstoneTools.PlanarFreehandROITool.toolName);
           toolGroup.addTool(cornerstoneTools.MagnifyTool.toolName);
-          toolGroup.addTool(cornerstoneTools.CrosshairsTool.toolName);
+          
+          // Configuração avançada do Crosshairs para suportar MPR Oblíquo (rotação)
+          toolGroup.addTool(cornerstoneTools.CrosshairsTool.toolName, {
+            configuration: {
+              viewportIndicators: false,
+              autoPan: {
+                enabled: false,
+              },
+              mobile: {
+                enabled: true,
+                opacity: 1,
+              }
+            }
+          });
           toolGroup.addTool(cornerstoneTools.BrushTool.toolName);
 
           toolGroup.setToolActive(cornerstoneTools.WindowLevelTool.toolName, {
@@ -824,7 +838,21 @@ export default function Viewer() {
           });
         }
 
-        console.log("6. Loading images into viewport...");
+        console.log("6. Fetching WADO-RS metadata and loading images into viewport...");
+        try {
+          const res = await fetch(`${baseUrl}/api/dicom-web/studies/${studyUid}/series/${seriesUid}/metadata`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+          });
+          const metadataArray = await res.json();
+          metadataArray.forEach((meta: any, idx: number) => {
+            if (imageIds[idx]) {
+              cornerstoneDICOMImageLoader.wadors.metaDataManager.add(imageIds[idx], meta);
+            }
+          });
+        } catch (e) {
+          console.error("Error fetching WADO-RS metadata:", e);
+        }
+
         try {
           if (viewMode === '2D') {
             const viewport = renderingEngine.getViewport(viewportId) as cornerstone.Types.IStackViewport;

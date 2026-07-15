@@ -12,6 +12,10 @@ from app.core.config import settings
 
 from app.pacs.models import Study, Series, Instance, Patient
 from app.dicomweb.utils import format_study_dicom_json, format_series_dicom_json, format_instance_dicom_json
+from app.dicomweb.metadata_generator import dicom_to_json, generate_multipart_related_response
+from fastapi.responses import Response
+import pydicom
+from io import BytesIO
 
 router = APIRouter()
 
@@ -116,3 +120,106 @@ async def retrieve_instance(
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving file from MinIO: {e}")
+
+@router.get("/studies/{study_uid}/series/{series_uid}/instances/{instance_uid}/metadata")
+async def retrieve_instance_metadata(
+    study_uid: str,
+    series_uid: str,
+    instance_uid: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    WADO-RS Retrieve Instance Metadata.
+    Returns the DICOM metadata (excluding PixelData) in application/dicom+json format.
+    """
+    stmt = select(Instance).where(Instance.sop_instance_uid == instance_uid)
+    result = await db.execute(stmt)
+    instance = result.scalar_one_or_none()
+    
+    if not instance:
+        raise HTTPException(status_code=404, detail="Instance not found")
+        
+    minio_client = get_minio_client()
+    try:
+        response = minio_client.get_object(settings.MINIO_BUCKET_NAME, instance.file_path)
+        dicom_bytes = response.read()
+        
+        # Read DICOM using pydicom
+        ds = pydicom.dcmread(BytesIO(dicom_bytes))
+        
+        # Convert to DICOMweb JSON
+        metadata_json = dicom_to_json(ds)
+        
+        # WADO-RS Metadata returns an array of JSON objects (one for each instance, here just one)
+        return JSONResponse(content=[metadata_json], media_type="application/dicom+json")
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving metadata: {e}")
+
+@router.get("/studies/{study_uid}/series/{series_uid}/metadata")
+async def retrieve_series_metadata(
+    study_uid: str,
+    series_uid: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    WADO-RS Retrieve Series Metadata.
+    Returns an array of DICOM metadata for all instances in the series.
+    """
+    stmt = select(Instance).join(Series).where(Series.series_instance_uid == series_uid)
+    result = await db.execute(stmt)
+    instances = result.scalars().all()
+    
+    if not instances:
+        raise HTTPException(status_code=404, detail="No instances found for this series")
+        
+    minio_client = get_minio_client()
+    metadata_list = []
+    
+    try:
+        for instance in instances:
+            response = minio_client.get_object(settings.MINIO_BUCKET_NAME, instance.file_path)
+            dicom_bytes = response.read()
+            ds = pydicom.dcmread(BytesIO(dicom_bytes))
+            metadata_list.append(dicom_to_json(ds))
+            
+        return JSONResponse(content=metadata_list, media_type="application/dicom+json")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving series metadata: {e}")
+        
+@router.get("/studies/{study_uid}/series/{series_uid}/instances/{instance_uid}/frames/{frame_number}")
+async def retrieve_instance_frames(
+    study_uid: str,
+    series_uid: str,
+    instance_uid: str,
+    frame_number: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    WADO-RS Retrieve Instance Frames.
+    Returns the pixel data of the requested frame wrapped in multipart/related.
+    """
+    stmt = select(Instance).where(Instance.sop_instance_uid == instance_uid)
+    result = await db.execute(stmt)
+    instance = result.scalar_one_or_none()
+    
+    if not instance:
+        raise HTTPException(status_code=404, detail="Instance not found")
+        
+    minio_client = get_minio_client()
+    try:
+        response = minio_client.get_object(settings.MINIO_BUCKET_NAME, instance.file_path)
+        dicom_bytes = response.read()
+        
+        boundary = "myboundary123"
+        multipart_data = generate_multipart_related_response(dicom_bytes, frame_number, boundary)
+        
+        headers = {
+            "Content-Type": f'multipart/related; type="application/octet-stream"; boundary={boundary}'
+        }
+        
+        return Response(content=multipart_data, headers=headers)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving frames: {e}")
+

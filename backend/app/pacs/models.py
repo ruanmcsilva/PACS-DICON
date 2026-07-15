@@ -42,6 +42,7 @@ class Series(Base):
     modality = Column(String, index=True, nullable=False) # (0008,0060) e.g., CT, MR, CR
     series_number = Column(Integer, nullable=True) # (0020,0011)
     series_description = Column(String, nullable=True) # (0008,103E)
+    video_path = Column(String, nullable=True)
     
     study_id = Column(UUID(as_uuid=True), ForeignKey("studies.id"), nullable=False)
 

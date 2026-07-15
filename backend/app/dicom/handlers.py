@@ -39,30 +39,21 @@ def handle_store(event):
     logger.info(f"Received C-STORE request from {requestor.ae_title} for Instance {sop_instance_uid}")
     
     try:
-        # Save dataset to a byte stream to upload directly to MinIO
-        buffer = io.BytesIO()
+        # Save dataset to a local temporary file to quickly release the association
+        # The background worker will handle MinIO upload and DB insertion
+        temp_dir = "/tmp/dicom_ingest"
+        os.makedirs(temp_dir, exist_ok=True)
+        temp_path = os.path.join(temp_dir, file_name)
         
         # Write the dataset itself (pydicom save_as handles preamble, DICM and file_meta)
         dataset.is_implicit_VR = event.file_meta.TransferSyntaxUID.is_implicit_VR
         dataset.is_little_endian = event.file_meta.TransferSyntaxUID.is_little_endian
-        dataset.save_as(buffer, write_like_original=False)
+        dataset.save_as(temp_path, write_like_original=False)
         
-        # Upload to MinIO
-        length = buffer.tell()
-        buffer.seek(0)
-        
-        minio_client = get_minio_client()
-        minio_client.put_object(
-            bucket_name=settings.MINIO_BUCKET_NAME,
-            object_name=file_name,
-            data=buffer,
-            length=length,
-            content_type="application/dicom"
-        )
-        logger.info(f"Successfully stored {file_name} in MinIO bucket '{settings.MINIO_BUCKET_NAME}'.")
+        logger.info(f"Successfully stored {file_name} in temporary local storage.")
         
         # Publish task to RabbitMQ for asynchronous processing
-        asyncio.run(publish_metadata_task(file_name))
+        asyncio.run(publish_metadata_task(file_name, temp_path))
         
         return 0x0000 # Success status
 

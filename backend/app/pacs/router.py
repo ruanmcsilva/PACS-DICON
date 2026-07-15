@@ -72,6 +72,22 @@ async def get_studies(
         
     return studies
 
+@router.get("/studies/{study_id}", response_model=StudyResponse)
+async def get_study(
+    study_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = select(Study).options(selectinload(Study.patient), selectinload(Study.series)).where(Study.id == study_id)
+    result = await db.execute(stmt)
+    study = result.scalar_one_or_none()
+    
+    if not study:
+        raise HTTPException(status_code=404, detail="Study not found")
+        
+    study.series_count = len(study.series) if study.series else 0
+    return study
+
+
 @router.get("/studies/{study_id}/series", response_model=List[SeriesResponse])
 async def get_study_series(
     study_id: UUID,
@@ -90,6 +106,104 @@ async def get_series_instances(
     stmt = select(Instance).where(Instance.series_id == series_id).order_by(Instance.instance_number)
     result = await db.execute(stmt)
     return result.scalars().all()
+
+@router.post("/series/{series_id}/video")
+async def upload_series_video(
+    series_id: UUID,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = select(Series).where(Series.id == series_id)
+    result = await db.execute(stmt)
+    series = result.scalar_one_or_none()
+    
+    if not series:
+        raise HTTPException(status_code=404, detail="Series not found")
+        
+    minio_client = get_minio_client()
+    file_bytes = await file.read()
+    file_name = f"cine_{series_id}.webm"
+    
+    minio_client.put_object(
+        bucket_name=settings.MINIO_BUCKET_NAME,
+        object_name=file_name,
+        data=io.BytesIO(file_bytes),
+        length=len(file_bytes),
+        content_type="video/webm"
+    )
+    
+    series.video_path = file_name
+    await db.commit()
+    return {"message": "Video uploaded successfully", "video_path": file_name}
+
+@router.get("/series/{series_id}/video")
+async def get_series_video(
+    series_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = select(Series).where(Series.id == series_id)
+    result = await db.execute(stmt)
+    series = result.scalar_one_or_none()
+    
+    if not series or not series.video_path:
+        raise HTTPException(status_code=404, detail="Video not found")
+        
+    minio_client = get_minio_client()
+    try:
+        response = minio_client.get_object(settings.MINIO_BUCKET_NAME, series.video_path)
+        return StreamingResponse(
+            response.stream(32 * 1024), 
+            media_type="video/webm"
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving video: {e}")
+
+@router.delete("/series/{series_id}/video")
+async def delete_series_video(
+    series_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = select(Series).where(Series.id == series_id)
+    result = await db.execute(stmt)
+    series = result.scalar_one_or_none()
+    
+    if not series or not series.video_path:
+        raise HTTPException(status_code=404, detail="Video not found")
+        
+    minio_client = get_minio_client()
+    try:
+        minio_client.remove_object(settings.MINIO_BUCKET_NAME, series.video_path)
+        series.video_path = None
+        await db.commit()
+        return {"message": "Video deleted successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting video: {e}")
+
+@router.get("/videos")
+async def get_series_with_videos(
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = select(Series).options(selectinload(Series.study).selectinload(Study.patient)).where(Series.video_path.is_not(None))
+    result = await db.execute(stmt)
+    series_list = result.scalars().all()
+    
+    return [
+        {
+            "id": s.id,
+            "modality": s.modality,
+            "series_description": s.series_description,
+            "video_path": s.video_path,
+            "study": {
+                "id": s.study.id,
+                "study_date": s.study.study_date,
+                "patient": {
+                    "patient_name": s.study.patient.patient_name
+                }
+            }
+        }
+        for s in series_list
+    ]
+
 
 # --- INSTANCES / DICOM FILES ---
 @router.get("/instances/{instance_id}/file")
@@ -204,7 +318,7 @@ async def save_study_report(
         await db.refresh(new_report)
         return new_report
 
-@router.get("/studies/{study_id}/report", response_model=ReportResponse)
+@router.get("/studies/{study_id}/report", response_model=Optional[ReportResponse])
 async def get_study_report(
     study_id: UUID,
     db: AsyncSession = Depends(get_db)
@@ -213,10 +327,18 @@ async def get_study_report(
     result = await db.execute(stmt)
     report = result.scalar_one_or_none()
 
-    if not report:
-        raise HTTPException(status_code=404, detail="No report found for this study")
-
+    # Retorna None ao invés de lançar erro 404 para não poluir o console do navegador
+    # caso o estudo ainda não possua um laudo.
     return report
+
+@router.get("/reports", response_model=List[ReportResponse])
+async def get_all_reports(
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = select(Report).order_by(Report.created_at.desc())
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
 
 @router.post("/studies/{study_id}/report/export")
 async def export_study_report(

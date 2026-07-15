@@ -20,6 +20,7 @@ async def process_message(message: aio_pika.IncomingMessage):
         try:
             body = json.loads(message.body.decode("utf-8"))
             file_name = body.get("file_name")
+            temp_path = body.get("temp_path")
             
             if not file_name:
                 logger.error("Message received without file_name")
@@ -27,13 +28,39 @@ async def process_message(message: aio_pika.IncomingMessage):
                 
             logger.info(f"Worker processing background metadata task for: {file_name}")
             
-            # Fetch file from MinIO
             minio_client = get_minio_client()
-            response = minio_client.get_object(settings.MINIO_BUCKET_NAME, file_name)
-            file_bytes = io.BytesIO(response.read())
+            dataset = None
             
-            # Read DICOM
-            dataset = dcmread(file_bytes)
+            # If temp_path is provided, it came from the new optimized ingest pipeline
+            if temp_path and os.path.exists(temp_path):
+                # Upload to MinIO first
+                import os
+                file_size = os.path.getsize(temp_path)
+                with open(temp_path, "rb") as f:
+                    minio_client.put_object(
+                        bucket_name=settings.MINIO_BUCKET_NAME,
+                        object_name=file_name,
+                        data=f,
+                        length=file_size,
+                        content_type="application/dicom"
+                    )
+                logger.info(f"Worker uploaded {file_name} to MinIO")
+                
+                # Read DICOM from local temp file
+                dataset = dcmread(temp_path)
+                
+                # Clean up local temp file
+                try:
+                    os.remove(temp_path)
+                except Exception as cleanup_err:
+                    logger.warning(f"Failed to remove temp file {temp_path}: {cleanup_err}")
+                    
+            else:
+                # Fallback: Fetch file from MinIO if temp_path is missing or doesn't exist
+                # (e.g. for re-processing messages that were already in the queue or uploaded via HTTP endpoint)
+                response = minio_client.get_object(settings.MINIO_BUCKET_NAME, file_name)
+                file_bytes = io.BytesIO(response.read())
+                dataset = dcmread(file_bytes)
             
             # Process metadata (DB save)
             await process_dicom_metadata(dataset, file_name)

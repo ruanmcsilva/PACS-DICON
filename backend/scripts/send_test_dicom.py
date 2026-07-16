@@ -20,8 +20,8 @@ from pydicom import dcmread
 def get_real_dicoms():
     """Lê os arquivos reais do usuário."""
     files = [
-        "/home/ruan/Downloads/0015.DCM",
-        "/home/ruan/Downloads/0020.DCM"
+        "c:/Users/Felipe/Downloads/PACS-DICON/frontend/http_test.dcm",
+        "c:/Users/Felipe/Downloads/PACS-DICON/backend/scripts/downloaded_test.dcm"
     ]
     
     datasets = []
@@ -37,12 +37,14 @@ def get_real_dicoms():
                 ds.ensure_file_meta()
             
             datasets.append(ds)
+        else:
+            print(f"⚠️ Arquivo não encontrado: {filepath}")
     return datasets
 
 def send_image():
     datasets = get_real_dicoms()
     if not datasets:
-        print("❌ Nenhum arquivo encontrado em ~/Downloads.")
+        print("[ERROR] Nenhum arquivo encontrado em ~/Downloads.")
         return
         
     print(f"Preparando {len(datasets)} imagem(ns) reais para envio...")
@@ -66,13 +68,13 @@ def send_image():
             status = assoc.send_c_store(dataset)
             
             if status:
-                print(f"✅ Exame enviado com sucesso! Status DICOM: 0x{status.Status:04x}")
+                print(f"[OK] Exame enviado com sucesso! Status DICOM: 0x{status.Status:04x}")
             else:
-                print("❌ Falha ao enviar o exame (Conexão encerrada ou timeout).")
+                print("[ERROR] Falha ao enviar o exame (Conexão encerrada ou timeout).")
                 
             assoc.release()
         else:
-            print("❌ Não foi possível conectar ao servidor PACS. Verifique se ele está rodando.")
+            print("[ERROR] Não foi possível conectar ao servidor PACS. Verifique se ele está rodando.")
 
 if __name__ == "__main__":
     send_image()

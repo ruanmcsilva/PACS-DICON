@@ -37,9 +37,9 @@ const Sidebar = () => {
       <div style={{ flex: 1 }}></div>
 
       <div className="sidebar-nav" style={{ paddingBottom: '24px' }}>
-        <span className="nav-item" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
-          Configurações
-        </span>
+        <Link to="/communication" className={`nav-item ${currentPath === '/communication' ? 'active' : ''}`}>
+          Configurações (DICOM)
+        </Link>
       </div>
     </nav>
   );

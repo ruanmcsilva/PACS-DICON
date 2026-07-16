@@ -15,4 +15,4 @@ def setup_logging():
     )
 
     # Disable overly verbose loggers (e.g., from some third party libs if needed)
-    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn.access").setLevel(logging.INFO)

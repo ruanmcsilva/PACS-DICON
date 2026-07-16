@@ -146,6 +146,21 @@ export const pacsService = {
     async getReports(): Promise<any[]> {
         const response = await api.get<any[]>('/pacs/reports');
         return response.data;
+    },
+
+    async getDicomNodes(): Promise<any[]> {
+        const response = await api.get<any[]>('/pacs/dicom-nodes');
+        return response.data;
+    },
+
+    async createDicomNode(node: { name: string; ae_title: string; ip_address: string; port: number }): Promise<any> {
+        const response = await api.post('/pacs/dicom-nodes', node);
+        return response.data;
+    },
+
+    async deleteDicomNode(nodeId: string): Promise<any> {
+        const response = await api.delete(`/pacs/dicom-nodes/${nodeId}`);
+        return response.data;
     }
 };
 

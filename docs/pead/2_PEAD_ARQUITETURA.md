@@ -15,7 +15,7 @@ Este documento é a visão consolidada da engenharia de software do PACS Enterpr
 | **05** | Banco de Dados | PostgreSQL com SQLAlchemy (asyncpg). Estrutura completa de tabelas DICOM. |
 | **06** | Storage | MinIO (Object Storage S3-compatible). Substitui storage em disco tradicional. |
 | **07** | DICOM (SCP) | `pynetdicom`. Implementação de Association, C-ECHO, C-STORE, C-FIND, C-MOVE. |
-| **08** | DICOMWeb (REST) | Implementação de rotas QIDO-RS (buscas JSON) e WADO-RS (download DICOM). |
+| **08** | DICOMWeb (REST) | Implementação de rotas QIDO-RS (buscas JSON) e WADO-RS (download DICOM). (*Concluído*) |
 | **09** | PACS Engine | Processamento de Metadados via RabbitMQ. Hierarchy and routing base construída. |
 | **10** | Viewer | Interface WebGL renderizada via Cornerstone3D. (*Concluído*) |
 | **11** | Ferramentas de Medição | Toolbar, Regras de HU, Ângulos e ROIs. (*Concluído*) |

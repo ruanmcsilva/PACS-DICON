@@ -84,8 +84,6 @@ async def search_instances(
         
     return JSONResponse(content=response_data, media_type="application/dicom+json")
 
-# --- WADO-RS: Retrieve ---
-
 @router.get("/studies/{study_uid}/series/{series_uid}/instances/{instance_uid}")
 async def retrieve_instance(
     study_uid: str,
@@ -96,9 +94,6 @@ async def retrieve_instance(
     """
     WADO-RS Retrieve Instance.
     Returns the DICOM Part 10 file directly (application/dicom).
-    Note: A strict WADO-RS implementation might wrap this in multipart/related.
-    For simplicity and wide compatibility with Cornerstone loaders (like cornerstoneWADOImageLoader),
-    returning the raw file as application/dicom is often sufficient for single instance requests.
     """
     stmt = select(Instance).where(Instance.sop_instance_uid == instance_uid)
     result = await db.execute(stmt)
@@ -111,9 +106,6 @@ async def retrieve_instance(
     try:
         response = minio_client.get_object(settings.MINIO_BUCKET_NAME, instance.file_path)
         
-        # A true WADO-RS for multiple files would use multipart/related. 
-        # For a single instance, we can just return application/dicom or use multipart.
-        # Let's use application/dicom.
         return StreamingResponse(
             response.stream(32 * 1024), 
             media_type="application/dicom"

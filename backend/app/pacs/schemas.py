@@ -85,6 +85,19 @@ class ReportExportRequest(BaseModel):
     content: str
     key_images: List[str] = [] # List of base64 encoded images
 
+# --- DICOM NODES ---
+class DicomNodeCreate(BaseModel):
+    name: str
+    ae_title: str
+    ip_address: str
+    port: int
+
+class DicomNodeResponse(DicomNodeCreate):
+    id: UUID
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
 # --- INTEGRATION (HL7/RIS) ---
 class IntegrationPatientCreate(BaseModel):
     patient_id: str

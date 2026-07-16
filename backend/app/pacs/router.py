@@ -14,8 +14,8 @@ import io
 import uuid
 from app.core.auth.deps import get_current_user
 
-from app.pacs.models import Patient, Study, Series, Instance, Annotation, Report
-from app.pacs.schemas import PatientResponse, StudyResponse, SeriesResponse, InstanceResponse, AnnotationCreate, AnnotationResponse, ReportCreate, ReportResponse, IntegrationPatientCreate, IntegrationOrderCreate, ReportExportRequest
+from app.pacs.models import Patient, Study, Series, Instance, Annotation, Report, DicomNode
+from app.pacs.schemas import PatientResponse, StudyResponse, SeriesResponse, InstanceResponse, AnnotationCreate, AnnotationResponse, ReportCreate, ReportResponse, IntegrationPatientCreate, IntegrationOrderCreate, ReportExportRequest, DicomNodeCreate, DicomNodeResponse
 from datetime import date
 import asyncio
 from fpdf import FPDF
@@ -572,3 +572,48 @@ async def integrate_order(
     study_loaded = res.scalar_one()
     
     return study_loaded
+
+# --- DICOM NODES ---
+@router.get("/dicom-nodes", response_model=List[DicomNodeResponse])
+async def get_dicom_nodes(
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = select(DicomNode).order_by(DicomNode.name)
+    result = await db.execute(stmt)
+    return result.scalars().all()
+
+@router.post("/dicom-nodes", response_model=DicomNodeResponse)
+async def create_dicom_node(
+    payload: DicomNodeCreate,
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = select(DicomNode).where(DicomNode.ae_title == payload.ae_title)
+    result = await db.execute(stmt)
+    if result.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="AETitle already registered")
+
+    new_node = DicomNode(
+        name=payload.name,
+        ae_title=payload.ae_title,
+        ip_address=payload.ip_address,
+        port=payload.port
+    )
+    db.add(new_node)
+    await db.commit()
+    await db.refresh(new_node)
+    return new_node
+
+@router.delete("/dicom-nodes/{node_id}")
+async def delete_dicom_node(
+    node_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = select(DicomNode).where(DicomNode.id == node_id)
+    result = await db.execute(stmt)
+    node = result.scalar_one_or_none()
+    if not node:
+        raise HTTPException(status_code=404, detail="DICOM Node not found")
+
+    await db.delete(node)
+    await db.commit()
+    return {"message": "DICOM Node deleted successfully"}

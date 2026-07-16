@@ -5,6 +5,7 @@ import Viewer from './pacs/components/Viewer';
 import Login from './pacs/components/Login';
 import VideoList from './pacs/components/VideoList';
 import ReportList from './pacs/components/ReportList';
+import CommunicationSettings from './pacs/components/CommunicationSettings';
 
 const PrivateRoute = ({ children }: { children: JSX.Element }) => {
   const token = localStorage.getItem('token');
@@ -15,6 +16,7 @@ function AppLayout() {
   const location = useLocation();
   const isVideosPath = location.pathname === '/videos';
   const isReportsPath = location.pathname === '/reports';
+  const isCommunicationPath = location.pathname === '/communication';
 
   return (
     <div className="app-container">
@@ -27,6 +29,8 @@ function AppLayout() {
           <VideoList />
         ) : isReportsPath ? (
           <ReportList />
+        ) : isCommunicationPath ? (
+          <CommunicationSettings />
         ) : (
           <>
             <header style={{ marginBottom: '32px' }}>
@@ -74,6 +78,7 @@ function App() {
         <Route path="/" element={<PrivateRoute><AppLayout /></PrivateRoute>} />
         <Route path="/videos" element={<PrivateRoute><AppLayout /></PrivateRoute>} />
         <Route path="/reports" element={<PrivateRoute><AppLayout /></PrivateRoute>} />
+        <Route path="/communication" element={<PrivateRoute><AppLayout /></PrivateRoute>} />
         <Route path="/viewer/:studyId" element={<PrivateRoute><Viewer /></PrivateRoute>} />
       </Routes>
     </Router>

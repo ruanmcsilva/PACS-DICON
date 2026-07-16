@@ -87,3 +87,13 @@ class Report(Base):
 
     # Relationships
     study = relationship("Study", back_populates="report")
+
+class DicomNode(Base):
+    __tablename__ = "dicom_nodes"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String, nullable=False)
+    ae_title = Column(String, unique=True, index=True, nullable=False)
+    ip_address = Column(String, nullable=False)
+    port = Column(Integer, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)

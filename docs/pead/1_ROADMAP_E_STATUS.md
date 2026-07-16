@@ -129,8 +129,13 @@ Histórico do desenvolvimento passo-a-passo.
 - **Backend:** Serviço de geração de PDF estruturado que mescla o texto do Rascunho Clínico com as imagens capturadas para criar o documento final.
 
 ### [ CONCLUÍDO ] Etapa 30: Sincronização Dinâmica (DicomWeb / WADO-RS)
+
 - **Infraestrutura:** Transição do modelo `wadouri` para transmissões orientadas a metadados (`WADO-RS`). Implementado endpoints `/metadata` e `/frames` no backend usando pydicom e multipart/related.
 - **Recursos:** Carregamento ultra rápido via streaming assíncrono para exames massivos, exibindo imagens progressivamente usando `wadors:` no frontend.
+
+- **Infraestrutura:** Transição do modelo `wadouri` para transmissões orientadas a metadados (`WADO-RS`).
+- **Recursos:** Carregamento ultra rápido via streaming assíncrono para exames massivos, exibindo imagens progressivamente.
+>>>>>>> f49d01b (Implementação da comunicação)
 
 ### [ CONCLUÍDO ] Etapa 31: MPR Oblíquo (Ferramenta Avançada)
 - **Frontend:** Atualizada a configuração do `CrosshairsTool` para habilitar manipulação mobile e rotação livre dos eixos.

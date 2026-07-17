@@ -20,8 +20,7 @@ from pydicom import dcmread
 def get_real_dicoms():
     """Lê os arquivos reais do usuário."""
     files = [
-        "c:/Users/Felipe/Downloads/PACS-DICON/frontend/http_test.dcm",
-        "c:/Users/Felipe/Downloads/PACS-DICON/backend/scripts/downloaded_test.dcm"
+        os.path.join(os.path.dirname(__file__), "..", "downloaded_test.dcm")
     ]
     
     datasets = []
@@ -29,8 +28,8 @@ def get_real_dicoms():
         if os.path.exists(filepath):
             ds = dcmread(filepath)
             # Garantir paciente único para o teste de hoje
-            ds.PatientName = "TESTE^WEASIS"
-            ds.PatientID = "WEASIS123"
+            ds.PatientName = "TESTE^NUVEM^BORE"
+            ds.PatientID = "NUVEM123"
             
             # Se não tiver File Meta, crie um básico
             if not hasattr(ds, 'file_meta') or ds.file_meta is None:

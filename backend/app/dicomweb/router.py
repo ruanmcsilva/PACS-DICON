@@ -203,8 +203,12 @@ async def retrieve_instance_frames(
         response = minio_client.get_object(settings.MINIO_BUCKET_NAME, instance.file_path)
         dicom_bytes = response.read()
         
+        # Extract Transfer Syntax from the file to send in the multipart header
+        ds = pydicom.dcmread(BytesIO(dicom_bytes), stop_before_pixels=True)
+        transfer_syntax = str(ds.file_meta.TransferSyntaxUID) if hasattr(ds, 'file_meta') and 'TransferSyntaxUID' in ds.file_meta else "1.2.840.10008.1.2"
+        
         boundary = "myboundary123"
-        multipart_data = generate_multipart_related_response(dicom_bytes, frame_number, boundary)
+        multipart_data = generate_multipart_related_response(dicom_bytes, frame_number, boundary, transfer_syntax)
         
         headers = {
             "Content-Type": f'multipart/related; type="application/octet-stream"; boundary={boundary}'

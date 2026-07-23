@@ -1,6 +1,13 @@
 import logging
 import threading
+import pynetdicom
 from pynetdicom import AE, evt, AllStoragePresentationContexts, VerificationPresentationContexts, QueryRetrievePresentationContexts
+
+# Override strict DICOM validation to accept connections from old systems (like KPACS)
+# that incorrectly pad strings with null bytes (\x00) instead of spaces.
+def permissive_ae_validator(value):
+    return (True, "")
+pynetdicom._config.VALIDATORS['AE'] = permissive_ae_validator
 
 from app.core.config import settings
 from app.dicom.handlers import handle_echo, handle_store, handle_find, handle_move

@@ -24,6 +24,7 @@ const SeriesThumbnail: React.FC<SeriesThumbnailProps> = ({ seriesId, seriesInsta
     const viewportId = `thumb_vp_${seriesId}`;
 
     const loadThumbnail = async () => {
+      if (!studyInstanceUid || !seriesInstanceUid) return;
       try {
         setLoading(true);
         // 1. Fetch instances for this series
@@ -39,32 +40,11 @@ const SeriesThumbnail: React.FC<SeriesThumbnailProps> = ({ seriesId, seriesInsta
         const targetInstance = instances[midIndex];
         
         const baseUrl = "http://localhost:8000";
-        let imageId = "";
-        if (studyInstanceUid && seriesInstanceUid) {
-          imageId = `wadors:${baseUrl}/api/dicom-web/studies/${studyInstanceUid}/series/${seriesInstanceUid}/instances/${targetInstance.sop_instance_uid}/frames/1`;
-        } else {
-          imageId = `wadouri:${baseUrl}/api/pacs/instances/${targetInstance.id}/file`;
-        }
+        const imageId = `wadouri:${baseUrl}/api/pacs/instances/${targetInstance.id}/file`;
 
         // Initialize Cornerstone and pre-load the image to cache
         await initCornerstone();
         if (!isMounted) return;
-        
-        if (imageId.startsWith("wadors:")) {
-          try {
-            const res = await fetch(`${baseUrl}/api/dicom-web/studies/${studyInstanceUid}/series/${seriesInstanceUid}/metadata`, {
-              headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-            });
-            const metadataArray = await res.json();
-            // find the metadata for our specific instance
-            const myMeta = metadataArray.find((m: any) => m["00080018"]?.Value?.[0] === targetInstance.sop_instance_uid);
-            if (myMeta) {
-              cornerstoneDICOMImageLoader.wadors.metaDataManager.add(imageId, myMeta);
-            }
-          } catch (e) {
-            console.error("Error fetching WADO-RS metadata for thumbnail:", e);
-          }
-        }
 
         await cornerstone.imageLoader.loadAndCacheImage(imageId);
         if (!isMounted) return;

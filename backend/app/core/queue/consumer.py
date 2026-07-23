@@ -2,6 +2,7 @@ import json
 import io
 import logging
 import asyncio
+import os
 import aio_pika
 from pydicom import dcmread
 
@@ -34,7 +35,6 @@ async def process_message(message: aio_pika.IncomingMessage):
             # If temp_path is provided, it came from the new optimized ingest pipeline
             if temp_path and os.path.exists(temp_path):
                 # Upload to MinIO first
-                import os
                 file_size = os.path.getsize(temp_path)
                 with open(temp_path, "rb") as f:
                     minio_client.put_object(

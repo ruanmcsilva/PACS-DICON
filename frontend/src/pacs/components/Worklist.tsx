@@ -189,7 +189,14 @@ const Worklist = () => {
                                     {study.patient?.patient_name || 'Desconhecido'}
                                 </td>
                                 <td style={{ padding: '16px 24px' }}>
-                                    {study.study_date ? new Date(study.study_date).toLocaleDateString() : 'N/A'}
+                                    {study.study_date ? (() => {
+                                        try {
+                                            const d = new Date(study.study_date);
+                                            return isNaN(d.getTime()) ? 'Data Inválida' : d.toLocaleDateString();
+                                        } catch {
+                                            return 'Erro';
+                                        }
+                                    })() : 'N/A'}
                                 </td>
                                 <td style={{ padding: '16px 24px', color: 'var(--text-muted)' }}>
                                     {study.study_description || '-'}

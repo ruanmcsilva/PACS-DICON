@@ -640,9 +640,7 @@ export default function Viewer() {
         }
 
         const baseUrl = "http://localhost:8000";
-        const imageIds = data.map(inst => 
-          `wadors:${baseUrl}/api/dicom-web/studies/${studyUid}/series/${seriesUid}/instances/${inst.sop_instance_uid}/frames/1`
-        );
+        const imageIds = data.map(inst => `wadouri:${baseUrl}/api/pacs/instances/${inst.id}/file`);
 
         // 3. Initialize Cornerstone
         await initCornerstone();
@@ -838,20 +836,7 @@ export default function Viewer() {
           });
         }
 
-        console.log("6. Fetching WADO-RS metadata and loading images into viewport...");
-        try {
-          const res = await fetch(`${baseUrl}/api/dicom-web/studies/${studyUid}/series/${seriesUid}/metadata`, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-          });
-          const metadataArray = await res.json();
-          metadataArray.forEach((meta: any, idx: number) => {
-            if (imageIds[idx]) {
-              cornerstoneDICOMImageLoader.wadors.metaDataManager.add(imageIds[idx], meta);
-            }
-          });
-        } catch (e) {
-          console.error("Error fetching WADO-RS metadata:", e);
-        }
+        console.log("6. Loading images into viewport...");
 
         try {
           if (viewMode === '2D') {

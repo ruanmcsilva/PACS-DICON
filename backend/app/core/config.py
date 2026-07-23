@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     MINIO_BUCKET_NAME: str = "dicom-images"
 
     # DICOM Server Config
-    DICOM_AETITLE: str = "PACS_ENTERPRISE"
+    DICOM_AETITLE: str = "PACS_ENTERPRISE1"
     DICOM_PORT: int = 11112
 
     # RabbitMQ Settings

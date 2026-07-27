@@ -408,7 +408,7 @@ export default function Viewer() {
   const handleExportPDF = async () => {
     if (!studyId) return;
     try {
-      const response = await fetch(`http://localhost:8000/api/pacs/studies/${studyId}/report/export`, {
+      const response = await fetch(`/api/pacs/studies/${studyId}/report/export`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -639,7 +639,7 @@ export default function Viewer() {
           return;
         }
 
-        const baseUrl = "http://localhost:8000";
+        const baseUrl = window.location.origin;
         const imageIds = data.map(inst => `wadouri:${baseUrl}/api/pacs/instances/${inst.id}/file`);
 
         // 3. Initialize Cornerstone

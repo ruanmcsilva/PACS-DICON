@@ -2,7 +2,7 @@ import axios from 'axios';
 import type { IStudy, IPatient, ISeries, IInstance } from '../types';
 
 // Configure the base API URL (could be from env vars in production)
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000/api';
+const API_URL = process.env.REACT_APP_API_URL || '/api';
 
 const api = axios.create({
     baseURL: API_URL,

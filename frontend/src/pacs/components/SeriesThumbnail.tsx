@@ -39,7 +39,7 @@ const SeriesThumbnail: React.FC<SeriesThumbnailProps> = ({ seriesId, seriesInsta
         const midIndex = Math.floor(instances.length / 2);
         const targetInstance = instances[midIndex];
         
-        const baseUrl = "http://localhost:8000";
+        const baseUrl = window.location.origin;
         const imageId = `wadouri:${baseUrl}/api/pacs/instances/${targetInstance.id}/file`;
 
         // Initialize Cornerstone and pre-load the image to cache

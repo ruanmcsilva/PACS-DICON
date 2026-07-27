@@ -1,0 +1,144 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    container_name: pacs_db_aws
+    environment:
+      POSTGRES_USER: pacsuser
+      POSTGRES_PASSWORD: pacspassword
+      POSTGRES_DB: pacs_dicom
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data_aws:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pacsuser -d pacs_dicom"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: pacs_redis_aws
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data_aws:/data
+    restart: unless-stopped
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: pacs_rabbitmq_aws
+    environment:
+      RABBITMQ_DEFAULT_USER: pacsuser
+      RABBITMQ_DEFAULT_PASS: pacspassword
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data_aws:/var/lib/rabbitmq
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "rabbitmq-diagnostics -q ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # O MinIO foi removido. Na AWS, vamos usar o S3 Nativo.
+  
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pacs_backend_aws
+    environment:
+      - POSTGRES_SERVER=db
+      - POSTGRES_PORT=5432
+      - POSTGRES_USER=pacsuser
+      - POSTGRES_PASSWORD=pacspassword
+      - POSTGRES_DB=pacs_dicom
+      # ==========================================
+      # CONFIGURAÇÕES DO S3 PARA A AWS
+      # ==========================================
+      - MINIO_SERVER=s3.amazonaws.com # Conectando direto no endpoint da Amazon
+      - MINIO_SECURE=True
+      - MINIO_ROOT_USER=${AWS_ACCESS_KEY_ID} # Pegará do arquivo .env no servidor EC2
+      - MINIO_ROOT_PASSWORD=${AWS_SECRET_ACCESS_KEY} # Pegará do arquivo .env no servidor EC2
+      - MINIO_BUCKET_NAME=${AWS_S3_BUCKET_NAME} # Nome do bucket que vc criará na AWS
+      # ==========================================
+      - RABBITMQ_URL=amqp://pacsuser:pacspassword@rabbitmq:5672/
+      - SECRET_KEY=prod_fallback_secure_key_you_must_change_in_env_file
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=60
+    ports:
+      - "11112:11112" # DICOM SCP exposto para a internet (para o US e RM conectarem)
+      - "8000:8000"   
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pacs_frontend_aws
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: pacs_nginx_aws
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+
+volumes:
+  db_data_aws:
+  redis_data_aws:
+  rabbitmq_data_aws:
+
+# =========================================================================
+# GUIA DE DEPLOY NA AWS PARA O SEU TESTE FUTURO COM R.M E ULTRASSOM
+# =========================================================================
+#
+# 1. CRIAR O BUCKET S3
+#    - Vá no painel da AWS, procure por "S3" e crie um bucket (Ex: "meu-pacs-imagens-01").
+#    - Mantenha ele BLOQUEADO para o público (o backend vai acessar usando chaves seguras).
+#    - Vá em IAM (Identity and Access Management) na AWS.
+#    - Crie um usuário com permissão "AmazonS3FullAccess" (ou gere as Access Keys da sua conta).
+#    - Anote o "Access Key" e "Secret Key".
+#
+# 2. CRIAR A MÁQUINA EC2
+#    - Vá no painel EC2 e lance uma instância Ubuntu (tamanho recomendado: t3.medium).
+#    - Na aba "Security Groups" da instância, abra as seguintes portas para 0.0.0.0/0:
+#         - Porta 22 (SSH)
+#         - Porta 80 (HTTP - Para você acessar a plataforma do PACS)
+#         - Porta 11112 (Custom TCP - Para a Ressonância e Ultrassom mandarem imagens)
+#    - Peça um "Elastic IP" e vincule nessa máquina, assim o IP nunca vai mudar.
+#
+# 3. NO TERMINAL DA MÁQUINA AWS (SSH)
+#    - Instale o Docker e o Docker Compose.
+#    - Faça o git clone do seu projeto para lá.
+#    - Crie um arquivo chamado `.env` na raiz do projeto e cole:
+#         AWS_ACCESS_KEY_ID=sua_chave_aqui
+#         AWS_SECRET_ACCESS_KEY=seu_secret_aqui
+#         AWS_S3_BUCKET_NAME=meu-pacs-imagens-01
+#    - Rode o projeto com:
+#         docker compose -f docker-compose.aws.yml up -d --build
+#
+# 4. NA MÁQUINA DE EXAME DO HOSPITAL (ULTRASSOM / RM)
+#    - AETitle de Destino: MYPACS (ou o que está configurado na máquina DICOM Nodes do sistema)
+#    - IP / Host de Destino: O "Elastic IP" da sua máquina EC2.
+#    - Porta: 11112
+# =========================================================================

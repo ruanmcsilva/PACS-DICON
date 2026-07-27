@@ -25,7 +25,11 @@ export default function ViewportOverlay({ element, seriesDescription }: Viewport
       if (engine) {
         const vp = engine.getViewport(viewportId) as any;
         if (vp && vp.getZoom) {
-          setZoom((vp.getZoom() * 100).toFixed(0));
+          try {
+            setZoom((vp.getZoom() * 100).toFixed(0));
+          } catch (e) {
+            // Ignore error if renderer is being destroyed
+          }
         }
       }
     };
@@ -91,7 +95,11 @@ export default function ViewportOverlay({ element, seriesDescription }: Viewport
         // Try getting zoom if not caught by Camera
         setZoom((prev) => {
           if (prev === '100' && vp.getZoom) {
-            return (vp.getZoom() * 100).toFixed(0);
+            try {
+              return (vp.getZoom() * 100).toFixed(0);
+            } catch (e) {
+              return prev;
+            }
           }
           return prev;
         });

@@ -76,6 +76,18 @@ const Worklist = () => {
         }
     };
 
+    const handleDeleteStudy = async (studyId: string) => {
+        if (!window.confirm("Tem certeza que deseja excluir este exame? Todas as imagens, laudos e anotações serão removidos permanentemente.")) return;
+        try {
+            await pacsService.deleteStudy(studyId);
+            fetchStudies();
+        } catch (err) {
+            console.error(err);
+            alert("Erro ao excluir o exame.");
+        }
+    };
+
+
     if (loading) {
         return (
             <div className="glass-card" style={{ padding: '48px', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -203,28 +215,56 @@ const Worklist = () => {
                                 </td>
                                 <td style={{ padding: '16px 24px' }}>
                                     {(study.series_count !== undefined && study.series_count > 0) ? (
-                                        <button style={{
-                                            background: 'transparent',
-                                            border: '1px solid var(--accent-primary)',
-                                            color: 'var(--accent-primary)',
-                                            padding: '8px 16px',
-                                            borderRadius: '8px',
-                                            cursor: 'pointer',
-                                            fontWeight: 600,
-                                            transition: 'all 0.2s ease'
-                                        }}
-                                        onMouseOver={(e) => {
-                                            e.currentTarget.style.background = 'var(--accent-primary)';
-                                            e.currentTarget.style.color = '#fff';
-                                        }}
-                                        onMouseOut={(e) => {
-                                            e.currentTarget.style.background = 'transparent';
-                                            e.currentTarget.style.color = 'var(--accent-primary)';
-                                        }}
-                                        onClick={() => handleOpenViewer(study.id)}
-                                        >
-                                            Abrir Viewer
-                                        </button>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            <button style={{
+                                                background: 'transparent',
+                                                border: '1px solid var(--accent-primary)',
+                                                color: 'var(--accent-primary)',
+                                                padding: '8px 16px',
+                                                borderRadius: '8px',
+                                                cursor: 'pointer',
+                                                fontWeight: 600,
+                                                transition: 'all 0.2s ease'
+                                            }}
+                                            onMouseOver={(e) => {
+                                                e.currentTarget.style.background = 'var(--accent-primary)';
+                                                e.currentTarget.style.color = '#fff';
+                                            }}
+                                            onMouseOut={(e) => {
+                                                e.currentTarget.style.background = 'transparent';
+                                                e.currentTarget.style.color = 'var(--accent-primary)';
+                                            }}
+                                            onClick={() => handleOpenViewer(study.id)}
+                                            >
+                                                Abrir Viewer
+                                            </button>
+                                            
+                                            <button style={{
+                                                background: 'transparent',
+                                                border: '1px solid #ef4444',
+                                                color: '#ef4444',
+                                                padding: '8px 12px',
+                                                borderRadius: '8px',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                transition: 'all 0.2s ease'
+                                            }}
+                                            onMouseOver={(e) => {
+                                                e.currentTarget.style.background = '#ef4444';
+                                                e.currentTarget.style.color = '#fff';
+                                            }}
+                                            onMouseOut={(e) => {
+                                                e.currentTarget.style.background = 'transparent';
+                                                e.currentTarget.style.color = '#ef4444';
+                                            }}
+                                            onClick={() => handleDeleteStudy(study.id)}
+                                            title="Excluir Exame"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                                            </button>
+                                        </div>
                                     ) : (
                                         <span style={{ 
                                             display: 'inline-block',

@@ -90,6 +90,7 @@ export default function Viewer() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const moreButtonRef = useRef<HTMLDivElement>(null);
+  const renderingEngineRef = useRef<cornerstone.RenderingEngine | null>(null);
   
   // Video Modal States
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
@@ -599,7 +600,6 @@ export default function Viewer() {
 
   // Efeito principal do Cornerstone (reage ao activeSeriesId e viewMode)
   useEffect(() => {
-    let renderingEngine: cornerstone.RenderingEngine;
     let resizeObserver: ResizeObserver;
     const renderingEngineId = 'myRenderingEngine';
     const viewportId = 'CT_STACK';
@@ -651,9 +651,12 @@ export default function Viewer() {
         if (existingEngine) {
           existingEngine.destroy();
         }
+        
+        if (!isMounted) return;
 
         // 4. Create Rendering Engine
-        renderingEngine = new cornerstone.RenderingEngine(renderingEngineId);
+        const renderingEngine = new cornerstone.RenderingEngine(renderingEngineId);
+        renderingEngineRef.current = renderingEngine;
         const viewportIds: string[] = [];
 
         if (viewMode === '2D') {
@@ -842,6 +845,7 @@ export default function Viewer() {
           if (viewMode === '2D') {
             const viewport = renderingEngine.getViewport(viewportId) as cornerstone.Types.IStackViewport;
             await viewport.setStack(imageIds, 0);
+            if (!isMounted) return;
             viewport.render();
 
             // 7. Restaurar Anotações Salvas (se existirem)
@@ -873,6 +877,7 @@ export default function Viewer() {
               volume = await cornerstone.volumeLoader.createAndCacheVolume(volumeId, { imageIds });
             }
             await volume.load();
+            if (!isMounted) return;
 
             const vpAxial = renderingEngine.getViewport('AXIAL') as cornerstone.Types.IVolumeViewport;
             const vpSagittal = renderingEngine.getViewport('SAGITTAL') as cornerstone.Types.IVolumeViewport;
@@ -936,8 +941,9 @@ export default function Viewer() {
       if (resizeObserver) {
         resizeObserver.disconnect();
       }
-      if (renderingEngine) {
-        renderingEngine.destroy();
+      if (renderingEngineRef.current) {
+        renderingEngineRef.current.destroy();
+        renderingEngineRef.current = null;
       }
       cornerstoneTools.ToolGroupManager.destroyToolGroup(toolGroupId);
       cornerstoneTools.SynchronizerManager.destroySynchronizer('VOI_SYNCHRONIZER_ID');

@@ -45,6 +45,12 @@ export const pacsService = {
         return response.data;
     },
 
+    async deleteStudy(studyId: string): Promise<any> {
+        const response = await api.delete(`/pacs/studies/${studyId}`);
+        return response.data;
+    },
+
+
     async getPatients(skip: number = 0, limit: number = 100): Promise<IPatient[]> {
         const response = await api.get<IPatient[]>('/pacs/patients', {
             params: { skip, limit }

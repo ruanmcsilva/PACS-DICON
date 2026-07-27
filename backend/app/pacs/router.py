@@ -18,6 +18,7 @@ from app.pacs.models import Patient, Study, Series, Instance, Annotation, Report
 from app.pacs.schemas import PatientResponse, StudyResponse, SeriesResponse, InstanceResponse, AnnotationCreate, AnnotationResponse, ReportCreate, ReportResponse, IntegrationPatientCreate, IntegrationOrderCreate, ReportExportRequest, DicomNodeCreate, DicomNodeResponse
 from datetime import date
 import asyncio
+from app.pacs.service import delete_study as delete_study_service
 from fpdf import FPDF
 import base64
 
@@ -87,6 +88,16 @@ async def get_study(
     study.series_count = len(study.series) if study.series else 0
     return study
 
+
+@router.delete("/studies/{study_id}")
+async def delete_study_endpoint(
+    study_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    success = await delete_study_service(str(study_id))
+    if not success:
+        raise HTTPException(status_code=404, detail="Study not found")
+    return {"message": "Study deleted successfully"}
 
 @router.get("/studies/{study_id}/series", response_model=List[SeriesResponse])
 async def get_study_series(

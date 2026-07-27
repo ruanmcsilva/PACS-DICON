@@ -266,3 +266,37 @@ async def get_instances_for_move(query_dataset: Dataset) -> list[str]:
             file_paths = result.scalars().all()
             
     return file_paths
+
+async def delete_study(study_id: str) -> bool:
+    """
+    Deletes a study and all its associated series/instances from the database.
+    Also removes the associated files from MinIO.
+    """
+    from app.core.storage import get_minio_client
+    from app.core.config import settings
+    import uuid
+
+    async with AsyncSessionLocal() as session:
+        # 1. Get file paths to delete from MinIO
+        stmt = select(Instance.file_path).join(Series).join(Study).where(Study.id == uuid.UUID(study_id))
+        result = await session.execute(stmt)
+        file_paths = result.scalars().all()
+
+        if file_paths:
+            minio_client = get_minio_client()
+            for path in file_paths:
+                try:
+                    minio_client.remove_object(settings.MINIO_BUCKET_NAME, path)
+                except Exception as e:
+                    logger.error(f"Failed to delete {path} from MinIO: {e}")
+        
+        # 2. Delete from Database
+        stmt_study = select(Study).where(Study.id == uuid.UUID(study_id))
+        result = await session.execute(stmt_study)
+        study = result.scalar_one_or_none()
+        
+        if study:
+            await session.delete(study)
+            await session.commit()
+            return True
+        return False

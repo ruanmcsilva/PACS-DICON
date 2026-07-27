@@ -18,8 +18,12 @@ class DicomServer:
     def __init__(self):
         self.ae = AE(ae_title=settings.DICOM_AETITLE)
         
+        from pynetdicom import ALL_TRANSFER_SYNTAXES
+        
         # We want to support all storage types (CT, MR, CR, Ultrasound, etc.)
-        self.ae.supported_contexts = AllStoragePresentationContexts
+        # and all transfer syntaxes (JPEG, JPEG2000, RLE, etc.)
+        for context in AllStoragePresentationContexts:
+            self.ae.add_supported_context(context.abstract_syntax, ALL_TRANSFER_SYNTAXES)
         
         # We also want to support verification (C-ECHO)
         for context in VerificationPresentationContexts:

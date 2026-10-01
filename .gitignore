@@ -35,3 +35,9 @@ wheels/
 frontend/node_modules/
 frontend/dist/
 bore
+
+# Environment variables
+.env
+.env.*
+!.env.example
+

@@ -81,6 +81,22 @@ class ReportResponse(ReportCreate):
 
     model_config = ConfigDict(from_attributes=True)
 
+class ReportItemResponse(BaseModel):
+    id: UUID
+    report_id: Optional[UUID] = None
+    study_id: UUID
+    content: Optional[str] = None
+    status: str = "DRAFT"
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    study_description: Optional[str] = None
+    study_date: Optional[str] = None
+    patient_name: Optional[str] = None
+    patient_id: Optional[str] = None
+    modality: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
 class ReportExportRequest(BaseModel):
     content: str
     key_images: List[str] = [] # List of base64 encoded images

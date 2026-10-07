@@ -11,7 +11,7 @@ class Patient(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     patient_id = Column(String, unique=True, index=True, nullable=False) # DICOM Patient ID (0010,0020)
     patient_name = Column(String, nullable=True) # (0010,0010)
-    patient_sex = Column(String(1), nullable=True) # (0010,0040)
+    patient_sex = Column(String(16), nullable=True) # (0010,0040) M, F, O, MALE, FEMALE, etc.
     patient_birth_date = Column(Date, nullable=True) # (0010,0030)
 
     # Relationship to Study

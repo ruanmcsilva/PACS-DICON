@@ -15,7 +15,7 @@ import uuid
 from app.core.auth.deps import get_current_user
 
 from app.pacs.models import Patient, Study, Series, Instance, Annotation, Report, DicomNode
-from app.pacs.schemas import PatientResponse, StudyResponse, SeriesResponse, InstanceResponse, AnnotationCreate, AnnotationResponse, ReportCreate, ReportResponse, IntegrationPatientCreate, IntegrationOrderCreate, ReportExportRequest, DicomNodeCreate, DicomNodeResponse
+from app.pacs.schemas import PatientResponse, StudyResponse, SeriesResponse, InstanceResponse, AnnotationCreate, AnnotationResponse, ReportCreate, ReportResponse, ReportItemResponse, IntegrationPatientCreate, IntegrationOrderCreate, ReportExportRequest, DicomNodeCreate, DicomNodeResponse
 from datetime import date
 import asyncio
 from app.pacs.service import delete_study as delete_study_service
@@ -201,14 +201,21 @@ async def get_series_with_videos(
     return [
         {
             "id": s.id,
-            "modality": s.modality,
+            "series_id": s.id,
+            "modality": s.modality or "",
             "series_description": s.series_description,
+            "series_number": s.series_number,
             "video_path": s.video_path,
+            "study_id": s.study.id if s.study else None,
+            "study_description": s.study.study_description if s.study else None,
+            "study_date": str(s.study.study_date) if (s.study and s.study.study_date) else None,
+            "patient_name": s.study.patient.patient_name if (s.study and s.study.patient) else "Paciente Não Informado",
+            "patient_id": s.study.patient.patient_id if (s.study and s.study.patient) else "N/A",
             "study": {
-                "id": s.study.id,
-                "study_date": s.study.study_date,
+                "id": s.study.id if s.study else None,
+                "study_date": str(s.study.study_date) if (s.study and s.study.study_date) else None,
                 "patient": {
-                    "patient_name": s.study.patient.patient_name
+                    "patient_name": s.study.patient.patient_name if (s.study and s.study.patient) else "Paciente Não Informado"
                 }
             }
         }
@@ -342,13 +349,46 @@ async def get_study_report(
     # caso o estudo ainda não possua um laudo.
     return report
 
-@router.get("/reports", response_model=List[ReportResponse])
+@router.get("/reports", response_model=List[ReportItemResponse])
 async def get_all_reports(
     db: AsyncSession = Depends(get_db)
 ):
-    stmt = select(Report).order_by(Report.created_at.desc())
+    stmt = (
+        select(Report)
+        .options(
+            selectinload(Report.study).selectinload(Study.patient),
+            selectinload(Report.study).selectinload(Study.series)
+        )
+        .order_by(Report.created_at.desc())
+    )
     result = await db.execute(stmt)
-    return result.scalars().all()
+    reports = result.scalars().all()
+    
+    out = []
+    for r in reports:
+        p_name = r.study.patient.patient_name if (r.study and r.study.patient) else "Paciente Não Informado"
+        p_id = r.study.patient.patient_id if (r.study and r.study.patient) else "N/A"
+        s_desc = r.study.study_description if r.study else None
+        s_date = str(r.study.study_date) if (r.study and r.study.study_date) else None
+        mod = r.study.series[0].modality if (r.study and r.study.series and len(r.study.series) > 0) else "DICOM"
+        
+        out.append(
+            ReportItemResponse(
+                id=r.id,
+                report_id=r.id,
+                study_id=r.study_id,
+                content=r.content,
+                status=r.status,
+                created_at=r.created_at,
+                updated_at=r.updated_at,
+                study_description=s_desc,
+                study_date=s_date,
+                patient_name=p_name,
+                patient_id=p_id,
+                modality=mod
+            )
+        )
+    return out
 
 
 @router.post("/studies/{study_id}/report/export")
@@ -628,3 +668,93 @@ async def delete_dicom_node(
     await db.delete(node)
     await db.commit()
     return {"message": "DICOM Node deleted successfully"}
+
+@router.post("/dicom-nodes/{node_id}/test")
+async def test_dicom_node_connection(
+    node_id: UUID,
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = select(DicomNode).where(DicomNode.id == node_id)
+    result = await db.execute(stmt)
+    node = result.scalar_one_or_none()
+    if not node:
+        raise HTTPException(status_code=404, detail="DICOM Node not found")
+
+    import socket
+    # 1. Quick TCP socket probe
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(2.0)
+    try:
+        sock.connect((node.ip_address, node.port))
+        sock.close()
+    except Exception as e:
+        sock.close()
+        return {
+            "success": False,
+            "message": f"Conexão recusada ou timeout ao alcançar {node.ip_address}:{node.port}",
+            "details": str(e)
+        }
+
+    # 2. DICOM C-ECHO verification
+    try:
+        from pynetdicom import AE, VerificationPresentationContexts
+        ae = AE()
+        ae.network_timeout = 3
+        ae.acse_timeout = 3
+        ae.dimse_timeout = 3
+        ae.add_requested_context(VerificationPresentationContexts[0].abstract_syntax)
+        assoc = ae.associate(node.ip_address, node.port, ae_title=node.ae_title)
+        if assoc.is_established:
+            status = assoc.send_c_echo()
+            assoc.release()
+            if status and status.Status == 0:
+                return {
+                    "success": True,
+                    "message": f"C-ECHO confirmado com sucesso para {node.ae_title} ({node.ip_address}:{node.port})"
+                }
+            return {
+                "success": False,
+                "message": f"Associação estabelecida, mas C-ECHO retornou status {status}"
+            }
+        else:
+            return {
+                "success": True,
+                "message": f"Porta TCP {node.port} acessível (Associação DICOM recusada pelo host remoto)"
+            }
+    except Exception as e:
+        return {
+            "success": True,
+            "message": f"Porta TCP {node.port} aberta (detalhe DICOM: {str(e)})"
+        }
+
+# --- STATS / DASHBOARD ---
+@router.get("/stats")
+async def get_dashboard_stats(
+    db: AsyncSession = Depends(get_db)
+):
+    from sqlalchemy import func
+    from datetime import date
+    
+    today_str = date.today().strftime("%Y%m%d")
+    
+    # Estudos de hoje
+    stmt_today = select(func.count(Study.id)).where(Study.study_date == today_str)
+    res_today = await db.execute(stmt_today)
+    studies_today = res_today.scalar() or 0
+    
+    # Total de imagens (instâncias)
+    stmt_instances = select(func.count(Instance.id))
+    res_instances = await db.execute(stmt_instances)
+    total_instances = res_instances.scalar() or 0
+    
+    # Laudos pendentes (DRAFT)
+    stmt_pending = select(func.count(Report.id)).where(Report.status == "DRAFT")
+    res_pending = await db.execute(stmt_pending)
+    pending_reports = res_pending.scalar() or 0
+    
+    return {
+        "studies_today": studies_today,
+        "total_instances": total_instances,
+        "pending_reports": pending_reports
+    }
+

@@ -167,6 +167,16 @@ export const pacsService = {
     async deleteDicomNode(nodeId: string): Promise<any> {
         const response = await api.delete(`/pacs/dicom-nodes/${nodeId}`);
         return response.data;
+    },
+
+    async testDicomNode(nodeId: string): Promise<{ success: boolean; message: string; details?: string }> {
+        const response = await api.post(`/pacs/dicom-nodes/${nodeId}/test`);
+        return response.data;
+    },
+
+    async getStats(): Promise<{ studies_today: number; total_instances: number; pending_reports: number }> {
+        const response = await api.get('/pacs/stats');
+        return response.data;
     }
 };
 

@@ -18,6 +18,12 @@ class DicomServer:
     def __init__(self):
         self.ae = AE(ae_title=settings.DICOM_AETITLE)
         
+        # Otimização de rede para evitar timeout e acelerar recepção de tomografias
+        self.ae.maximum_pdu_size = 65536
+        self.ae.network_timeout = 60
+        self.ae.acse_timeout = 60
+        self.ae.dimse_timeout = 60
+        
         from pynetdicom import ALL_TRANSFER_SYNTAXES
         
         # We want to support all storage types (CT, MR, CR, Ultrasound, etc.)

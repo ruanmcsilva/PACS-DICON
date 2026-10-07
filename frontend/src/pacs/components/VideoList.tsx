@@ -44,8 +44,20 @@ const VideoList = () => {
       setLoading(true);
       setError(null);
       const data = await pacsService.getSeriesWithVideos();
-      setVideos(data);
-      setFilteredVideos(data);
+      const normalized: IVideoItem[] = (data || []).map((v: any) => ({
+        series_id: v.series_id || v.id,
+        series_description: v.series_description || null,
+        modality: v.modality || '',
+        series_number: v.series_number ?? 1,
+        video_path: v.video_path,
+        study_id: v.study_id || v.study?.id || '',
+        study_description: v.study_description || v.study?.study_description || null,
+        study_date: v.study_date || v.study?.study_date || null,
+        patient_name: v.patient_name || v.study?.patient?.patient_name || 'Paciente Não Informado',
+        patient_id: v.patient_id || v.study?.patient?.patient_id || 'N/A',
+      }));
+      setVideos(normalized);
+      setFilteredVideos(normalized);
     } catch (err) {
       console.error("Error fetching videos:", err);
       setError("Erro ao carregar a lista de gravações de vídeo.");
@@ -66,8 +78,8 @@ const VideoList = () => {
     if (searchQuery.trim() !== "") {
       const q = searchQuery.toLowerCase();
       result = result.filter(v => 
-        v.patient_name.toLowerCase().includes(q) ||
-        v.patient_id.toLowerCase().includes(q) ||
+        (v.patient_name || '').toLowerCase().includes(q) ||
+        (v.patient_id || '').toLowerCase().includes(q) ||
         (v.series_description && v.series_description.toLowerCase().includes(q)) ||
         (v.study_description && v.study_description.toLowerCase().includes(q))
       );
@@ -199,11 +211,11 @@ const VideoList = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
                 width: '100%',
-                background: 'rgba(0,0,0,0.2)',
+                background: 'var(--bg-app)',
                 border: '1px solid var(--border-color)',
                 borderRadius: '8px',
                 padding: '12px 16px 12px 42px',
-                color: 'white',
+                color: 'var(--text-primary)',
                 fontSize: '0.95rem',
                 outline: 'none',
                 transition: 'border-color 0.2s',
@@ -290,9 +302,9 @@ const VideoList = () => {
           </p>
         </div>
       ) : (
-        <div style={{ 
+        <div className="video-cards-grid" style={{ 
           display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', 
+          gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', 
           gap: '24px' 
         }}>
           {filteredVideos.map(video => (
@@ -403,14 +415,14 @@ const VideoList = () => {
               {/* Card Details */}
               <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <div>
-                  <h4 style={{ margin: '0 0 4px 0', fontSize: '1rem', color: 'white', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <h4 style={{ margin: '0 0 4px 0', fontSize: '1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <User size={14} style={{ color: 'var(--accent-primary)' }} />
                     {video.patient_name}
                   </h4>
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>ID: {video.patient_id}</span>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderTop: '1px solid var(--border-color)', paddingTop: '8px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.825rem', color: 'var(--text-secondary)' }}>
                     <Folder size={12} style={{ color: 'var(--text-muted)' }} />
                     <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }} title={video.study_description ?? ''}>
@@ -563,7 +575,7 @@ const VideoList = () => {
               alignItems: 'center',
             }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'white' }}>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>
                   CINE Loop: {activeVideo.patient_name}
                 </h3>
                 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>

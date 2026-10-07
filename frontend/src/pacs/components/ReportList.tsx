@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
-  FileText, Search, Eye, RefreshCw, Calendar, 
-  User, Folder, Printer, X, ShieldCheck, ShieldAlert 
+  FileText, Search, Eye, RefreshCw, 
+  Printer, X, ShieldAlert 
 } from 'lucide-react';
 import { pacsService } from '../services/api';
 
@@ -40,8 +40,21 @@ const ReportList = () => {
       setLoading(true);
       setError(null);
       const data = await pacsService.getReports();
-      setReports(data);
-      setFilteredReports(data);
+      const normalized: IReportItem[] = (data || []).map((r: any) => ({
+        report_id: r.report_id || r.id,
+        study_id: r.study_id,
+        content: r.content || null,
+        status: r.status || 'DRAFT',
+        created_at: r.created_at || null,
+        updated_at: r.updated_at || null,
+        study_description: r.study_description || null,
+        study_date: r.study_date || null,
+        patient_name: r.patient_name || 'Paciente Não Informado',
+        patient_id: r.patient_id || 'N/A',
+        modality: r.modality || 'DICOM'
+      }));
+      setReports(normalized);
+      setFilteredReports(normalized);
     } catch (err) {
       console.error("Error fetching reports:", err);
       setError("Erro ao carregar a lista de laudos salvos.");
@@ -62,8 +75,8 @@ const ReportList = () => {
     if (searchQuery.trim() !== "") {
       const q = searchQuery.toLowerCase();
       result = result.filter(r => 
-        r.patient_name.toLowerCase().includes(q) ||
-        r.patient_id.toLowerCase().includes(q) ||
+        (r.patient_name || '').toLowerCase().includes(q) ||
+        (r.patient_id || '').toLowerCase().includes(q) ||
         (r.study_description && r.study_description.toLowerCase().includes(q)) ||
         (r.content && r.content.toLowerCase().includes(q))
       );
@@ -158,11 +171,11 @@ const ReportList = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
                 width: '100%',
-                background: 'rgba(0,0,0,0.2)',
+                background: 'var(--bg-app)',
                 border: '1px solid var(--border-color)',
                 borderRadius: '8px',
                 padding: '12px 16px 12px 42px',
-                color: 'white',
+                color: 'var(--text-primary)',
                 fontSize: '0.95rem',
                 outline: 'none',
                 transition: 'border-color 0.2s',
@@ -280,7 +293,7 @@ const ReportList = () => {
                   {/* Patient info */}
                   <td style={{ padding: '16px 20px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <span style={{ fontWeight: '600', color: 'white' }}>{report.patient_name}</span>
+                      <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{report.patient_name}</span>
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>ID: {report.patient_id}</span>
                     </div>
                   </td>
@@ -431,7 +444,7 @@ const ReportList = () => {
               alignItems: 'center',
             }}>
               <div>
-                <h3 style={{ margin: 0, fontSize: '1.25rem', color: 'white', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <FileText size={20} style={{ color: 'var(--accent-primary)' }} />
                   Revisão de Laudo Médico
                 </h3>
@@ -478,7 +491,7 @@ const ReportList = () => {
               }}>
                 <div>
                   <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>Paciente</span>
-                  <span style={{ fontSize: '0.925rem', color: 'white', fontWeight: 600 }}>{activeReport.patient_name}</span>
+                  <span style={{ fontSize: '0.925rem', color: 'var(--text-primary)', fontWeight: 600 }}>{activeReport.patient_name}</span>
                 </div>
                 <div>
                   <span style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>ID Paciente</span>
@@ -544,14 +557,14 @@ const ReportList = () => {
               borderTop: '1px solid var(--border-color)',
               display: 'flex',
               justifyContent: 'space-between',
-              background: 'rgba(15, 23, 42, 0.4)',
+              background: 'var(--bg-app)',
             }}>
               <button
                 onClick={handlePrint}
                 style={{
-                  background: 'rgba(255,255,255,0.05)',
+                  background: 'var(--bg-card)',
                   border: '1px solid var(--border-color)',
-                  color: 'white',
+                  color: 'var(--text-primary)',
                   borderRadius: '6px',
                   padding: '8px 16px',
                   cursor: 'pointer',

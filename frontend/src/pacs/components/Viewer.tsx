@@ -16,6 +16,7 @@ import type { IInstance, ISeries, IStudy } from '../types';
 import ViewportOverlay from './ViewportOverlay';
 import SeriesThumbnail from './SeriesThumbnail';
 import html2canvas from 'html2canvas';
+import ThemeLanguageBar from '../../core/layout/ThemeLanguageBar';
 
 const Divider = () => <div style={{ width: '1px', height: '32px', backgroundColor: '#27272a', margin: '0 4px' }} />;
 
@@ -844,7 +845,23 @@ export default function Viewer() {
         try {
           if (viewMode === '2D') {
             const viewport = renderingEngine.getViewport(viewportId) as cornerstone.Types.IStackViewport;
-            await viewport.setStack(imageIds, 0);
+            
+            // Suporte inteligente a Multi-frame (Ultrassom CINE / Angiografia em movimento)
+            let stackIds = imageIds;
+            if (data.length === 1 && imageIds.length === 1) {
+              try {
+                const firstImg = await cornerstone.imageLoader.loadAndCacheImage(imageIds[0]);
+                const numFrames = (firstImg?.data?.intString ? firstImg.data.intString('x00280008') : null) || (firstImg as any)?.numFrames || 1;
+                if (numFrames > 1) {
+                  console.log(`🎬 Multi-frame detectado: ${numFrames} frames encontrados no arquivo.`);
+                  stackIds = Array.from({ length: numFrames }, (_, fIdx) => `${imageIds[0]}?frame=${fIdx}`);
+                }
+              } catch (mfErr) {
+                console.warn("Aviso ao inspecionar multi-frame, usando stack padrão:", mfErr);
+              }
+            }
+
+            await viewport.setStack(stackIds, 0);
             if (!isMounted) return;
             viewport.render();
 
@@ -937,17 +954,33 @@ export default function Viewer() {
 
     return () => {
       isMounted = false;
-      // Cleanup
+      // Cleanup de memória e instâncias
       if (resizeObserver) {
         resizeObserver.disconnect();
       }
       if (renderingEngineRef.current) {
-        renderingEngineRef.current.destroy();
+        try {
+          renderingEngineRef.current.destroy();
+        } catch (e) {
+          console.warn("Erro ao destruir rendering engine:", e);
+        }
         renderingEngineRef.current = null;
       }
-      cornerstoneTools.ToolGroupManager.destroyToolGroup(toolGroupId);
-      cornerstoneTools.SynchronizerManager.destroySynchronizer('VOI_SYNCHRONIZER_ID');
-      cornerstoneTools.SynchronizerManager.destroySynchronizer('ZOOM_PAN_SYNCHRONIZER_ID');
+      try {
+        cornerstoneTools.ToolGroupManager.destroyToolGroup(toolGroupId);
+      } catch (e) {}
+      try {
+        cornerstoneTools.SynchronizerManager.destroySynchronizer('VOI_SYNCHRONIZER_ID');
+        cornerstoneTools.SynchronizerManager.destroySynchronizer('ZOOM_PAN_SYNCHRONIZER_ID');
+      } catch (e) {}
+
+      // CRITICAL: Purgar cache do Cornerstone3D (libera texturas WebGL e memória de volumes)
+      // Previne crash de memória do navegador ao alternar entre exames tomográficos pesados
+      try {
+        cornerstone.cache.purgeCache();
+      } catch (purgeErr) {
+        console.warn("Erro ao purgar cache do Cornerstone:", purgeErr);
+      }
     };
   }, [activeSeriesId, viewMode, study, seriesList]);
 
@@ -984,17 +1017,17 @@ export default function Viewer() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', backgroundColor: 'black', color: 'white', position: 'absolute', top: 0, left: 0, zIndex: 50 }}>
       {/* Toolbar - OHIF Style */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 16px', backgroundColor: '#000000', borderBottom: '1px solid #27272a', width: '100%', boxSizing: 'border-box' }}>
+      <div className="viewer-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 12px', backgroundColor: '#000000', borderBottom: '1px solid #27272a', width: '100%', boxSizing: 'border-box' }}>
         
         {/* Logo / Info */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', width: '200px' }}>
+        <div className="viewer-brand-logo" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
           <div style={{ color: 'white', fontSize: '1.2rem', fontWeight: 'bold' }}>
             <span style={{ color: '#38bdf8' }}>PACS</span> Viewer
           </div>
         </div>
 
         {/* Ferramentas Centrais */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', overflowX: 'auto' }}>
+        <div className="viewer-center-tools" style={{ display: 'flex', alignItems: 'center', gap: '2px', overflowX: 'auto' }}>
           {/* Nav */}
           <ToolButton icon={<LayoutGrid size={20}/>} label="Series" active={isSeriesListOpen} onClick={() => setIsSeriesListOpen(!isSeriesListOpen)} />
           <ToolButton icon={<ChevronUp size={20}/>} label="Previous" onClick={() => navigateSlice(-1)} />
@@ -1107,7 +1140,7 @@ export default function Viewer() {
         </div>
 
         {/* Right Actions (Laudar, Salvar) */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
+        <div className="viewer-right-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'flex-end' }}>
             
             {/* Controles de Segmentação (Apenas se ativa) */}
             {isSegmentationActive && (
@@ -1127,24 +1160,25 @@ export default function Viewer() {
               </div>
             )}
 
+            <ThemeLanguageBar compact={true} />
             <button onClick={() => setIsReportPanelOpen(!isReportPanelOpen)} style={{ padding: '6px 12px', borderRadius: '4px', backgroundColor: 'transparent', color: isReportPanelOpen ? '#38bdf8' : '#a1a1aa', border: '1px solid #27272a', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
               {isReportPanelOpen ? 'Fechar' : 'Laudar'}
             </button>
             <button onClick={handleSaveAnnotations} style={{ padding: '6px 12px', borderRadius: '4px', backgroundColor: 'transparent', color: '#a1a1aa', border: '1px solid #27272a', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
               Salvar
             </button>
-            <button onClick={() => navigate('/')} style={{ padding: '6px 12px', borderRadius: '4px', backgroundColor: 'transparent', color: '#ef4444', border: '1px solid #27272a', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
+            <button onClick={() => navigate('/worklist')} style={{ padding: '6px 12px', borderRadius: '4px', backgroundColor: 'transparent', color: '#ef4444', border: '1px solid #27272a', cursor: 'pointer', fontSize: '12px', fontWeight: 600 }}>
               Sair
             </button>
         </div>
       </div>
 
       {/* Content Area (Sidebar + Viewer) */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div className="viewer-content-area" style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
         
         {/* Sidebar de Séries */}
         {isSeriesListOpen && (
-          <div style={{ width: '280px', backgroundColor: '#111827', borderRight: '1px solid #374151', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
+          <div className="viewer-series-sidebar" style={{ width: '280px', backgroundColor: '#111827', borderRight: '1px solid #374151', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
             <div style={{ padding: '16px', borderBottom: '1px solid #374151' }}>
               <h3 style={{ margin: 0, fontSize: '1rem', color: '#e5e7eb' }}>Séries do Exame</h3>
             </div>
@@ -1277,7 +1311,7 @@ export default function Viewer() {
 
         {/* Right Sidebar (Report) */}
         {isReportPanelOpen && (
-          <div style={{ width: '320px', backgroundColor: '#111827', borderLeft: '1px solid #374151', display: 'flex', flexDirection: 'column' }}>
+          <div className="viewer-report-panel" style={{ width: '320px', backgroundColor: '#111827', borderLeft: '1px solid #374151', display: 'flex', flexDirection: 'column' }}>
             <div style={{ padding: '16px', borderBottom: '1px solid #374151', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0, fontSize: '1rem', color: '#e5e7eb' }}>Laudo Médico</h3>
               <select 

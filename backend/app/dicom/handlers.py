@@ -9,7 +9,7 @@ from pydicom.filewriter import write_file_meta_info
 from app.core.config import settings
 from app.core.storage import get_minio_client
 from app.pacs.service import query_dicom_find, get_instances_for_move
-from app.core.queue.publisher import publish_metadata_task
+from app.core.queue.publisher import publish_metadata_task_sync
 from pydicom import dcmread
 
 logger = logging.getLogger(__name__)
@@ -52,8 +52,8 @@ def handle_store(event):
         
         logger.info(f"Successfully stored {file_name} in temporary local storage.")
         
-        # Publish task to RabbitMQ for asynchronous processing
-        asyncio.run(publish_metadata_task(file_name, temp_path))
+        # Publish task to RabbitMQ using persistent connection pool (ultra fast & non-blocking)
+        publish_metadata_task_sync(file_name, temp_path)
         
         return 0x0000 # Success status
 

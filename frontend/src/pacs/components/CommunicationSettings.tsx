@@ -106,18 +106,19 @@ export default function CommunicationSettings() {
     }
   };
 
-  const handleTestConnection = (id: string, aeTitle: string) => {
+  const handleTestConnection = async (id: string, _aeTitle?: string) => {
     setTestingStatus((prev) => ({ ...prev, [id]: 'testing' }));
-    
-    // Simulate connectivity testing (C-ECHO)
-    setTimeout(() => {
-      // For demonstration, let's randomly succeed or fail, or check if it matches a dummy AE
-      const success = Math.random() > 0.3; // 70% success chance for mockup
-      setTestingStatus((prev) => ({ 
-        ...prev, 
-        [id]: success ? 'success' : 'failed' 
-      }));
-    }, 1500);
+    try {
+      const res = await pacsService.testDicomNode(id);
+      if (res && res.success) {
+        setTestingStatus((prev) => ({ ...prev, [id]: 'success' }));
+      } else {
+        setTestingStatus((prev) => ({ ...prev, [id]: 'failed' }));
+      }
+    } catch (err) {
+      console.error('Error during DICOM ping/echo:', err);
+      setTestingStatus((prev) => ({ ...prev, [id]: 'failed' }));
+    }
   };
 
   return (
@@ -134,11 +135,11 @@ export default function CommunicationSettings() {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '32px', alignItems: 'start' }}>
+      <div className="communication-layout-grid" style={{ display: 'grid', gap: '24px', alignItems: 'start' }}>
         
         {/* Lista de Dispositivos */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <h2 style={{ fontSize: '1.25rem', marginBottom: '8px', color: '#e2e8f0' }}>Equipamentos Cadastrados</h2>
+          <h2 style={{ fontSize: '1.25rem', marginBottom: '8px', color: 'var(--text-primary)' }}>Equipamentos Cadastrados</h2>
           
           {loading ? (
             <div className="glass-card" style={{ padding: '32px', textAlign: 'center', color: 'var(--text-secondary)' }}>
@@ -157,13 +158,13 @@ export default function CommunicationSettings() {
               {nodes.map((node) => {
                 const status = testingStatus[node.id] || 'idle';
                 return (
-                  <div key={node.id} className="glass-card" style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'transform 0.2s', border: '1px solid var(--border-color)' }}>
+                  <div key={node.id} className="glass-card comm-node-card" style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'transform 0.2s', border: '1px solid var(--border-color)', flexWrap: 'wrap', gap: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                       <div style={{ padding: '10px', borderRadius: '10px', backgroundColor: 'rgba(6, 182, 212, 0.1)', color: 'var(--accent-primary)', display: 'flex' }}>
                         <Server size={24} />
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <span style={{ fontWeight: 600, fontSize: '1rem', color: '#f8fafc' }}>{node.name}</span>
+                        <span style={{ fontWeight: 600, fontSize: '1rem', color: 'var(--text-primary)' }}>{node.name}</span>
                         <div style={{ display: 'flex', gap: '12px', fontSize: '0.85rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
                           <span><strong style={{ color: 'var(--text-primary)' }}>AE Title:</strong> {node.ae_title}</span>
                           <span>|</span>
@@ -245,9 +246,9 @@ export default function CommunicationSettings() {
 
         {/* Formulário de Cadastro */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <h2 style={{ fontSize: '1.25rem', marginBottom: '8px', color: '#e2e8f0' }}>Novo Equipamento</h2>
+          <h2 style={{ fontSize: '1.25rem', marginBottom: '8px', color: 'var(--text-primary)' }}>Novo Equipamento</h2>
           
-          <form onSubmit={handleAddNode} className="glass-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', border: '1px solid var(--border-color)' }}>
+          <form onSubmit={handleAddNode} className="glass-card comm-form-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', border: '1px solid var(--border-color)' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Nome do Dispositivo</label>
               <input
@@ -257,10 +258,10 @@ export default function CommunicationSettings() {
                 onChange={(e) => setName(e.target.value)}
                 style={{
                   padding: '10px 12px',
-                  backgroundColor: '#0f172a',
+                  backgroundColor: 'var(--bg-app)',
                   border: '1px solid var(--border-color)',
                   borderRadius: '8px',
-                  color: 'white',
+                  color: 'var(--text-primary)',
                   outline: 'none',
                   fontSize: '0.9rem'
                 }}
@@ -276,10 +277,10 @@ export default function CommunicationSettings() {
                 onChange={(e) => setAeTitle(e.target.value)}
                 style={{
                   padding: '10px 12px',
-                  backgroundColor: '#0f172a',
+                  backgroundColor: 'var(--bg-app)',
                   border: '1px solid var(--border-color)',
                   borderRadius: '8px',
-                  color: 'white',
+                  color: 'var(--text-primary)',
                   outline: 'none',
                   fontSize: '0.9rem'
                 }}
@@ -295,10 +296,10 @@ export default function CommunicationSettings() {
                 onChange={(e) => setIpAddress(e.target.value)}
                 style={{
                   padding: '10px 12px',
-                  backgroundColor: '#0f172a',
+                  backgroundColor: 'var(--bg-app)',
                   border: '1px solid var(--border-color)',
                   borderRadius: '8px',
-                  color: 'white',
+                  color: 'var(--text-primary)',
                   outline: 'none',
                   fontSize: '0.9rem'
                 }}
@@ -314,10 +315,10 @@ export default function CommunicationSettings() {
                 onChange={(e) => setPort(e.target.value)}
                 style={{
                   padding: '10px 12px',
-                  backgroundColor: '#0f172a',
+                  backgroundColor: 'var(--bg-app)',
                   border: '1px solid var(--border-color)',
                   borderRadius: '8px',
-                  color: 'white',
+                  color: 'var(--text-primary)',
                   outline: 'none',
                   fontSize: '0.9rem'
                 }}
@@ -338,7 +339,7 @@ export default function CommunicationSettings() {
                 padding: '12px',
                 borderRadius: '8px',
                 background: 'linear-gradient(90deg, var(--accent-primary), #0891b2)',
-                color: '#0f172a',
+                color: '#ffffff',
                 border: 'none',
                 cursor: submitting ? 'not-allowed' : 'pointer',
                 fontWeight: 700,
@@ -370,7 +371,7 @@ export default function CommunicationSettings() {
         }
         .btn-echo:hover {
           background-color: var(--accent-hover) !important;
-          color: #0f172a !important;
+          color: #ffffff !important;
         }
       `}</style>
     </div>

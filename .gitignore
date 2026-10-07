@@ -32,12 +32,22 @@ wheels/
 .DS_Store
 
 # Frontend
+node_modules/
 frontend/node_modules/
 frontend/dist/
+dist/
+dist-ssr/
+*.log
+logs/
 bore
 
 # Environment variables
 .env
 .env.*
 !.env.example
+
+# DICOM binaries and medical images
+*.dcm
+
+
 

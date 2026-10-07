@@ -20,6 +20,7 @@ export default async function initCornerstone() {
   // 3. Configure DICOM image loader (Cornerstone3D / v5 approach)
   cornerstoneDICOMImageLoader.init({
     maxWebWorkers: navigator.hardwareConcurrency ? Math.max(1, Math.floor(navigator.hardwareConcurrency / 2)) : 1,
+    strict: false, // Permissivo: decodifica imagens antigas ou com tags ligeiramente fora do padrão
     beforeSend: function (xhr: XMLHttpRequest) {
       const token = localStorage.getItem('token');
       if (token) {

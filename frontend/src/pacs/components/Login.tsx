@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { pacsService } from '../services/api';
+import { useLanguage } from '../../core/context/LanguageContext';
+import ThemeLanguageBar from '../../core/layout/ThemeLanguageBar';
+import { ArrowLeft } from 'lucide-react';
 
 const Login: React.FC = () => {
+  const { t } = useLanguage();
   const [username, setUsername] = useState('admin');
   const [password, setPassword] = useState('admin');
   const [error, setError] = useState('');
@@ -17,26 +21,61 @@ const Login: React.FC = () => {
       const data = await pacsService.login(username, password);
       if (data.access_token) {
         localStorage.setItem('token', data.access_token);
-        navigate('/');
+        navigate('/worklist');
       }
     } catch (err) {
       console.error(err);
-      setError('Credenciais inválidas. Tente novamente.');
+      setError(t('login.error'));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{
+    <div className="login-wrapper" style={{
       minHeight: '100vh',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       background: 'linear-gradient(135deg, #111827 0%, #1f2937 100%)',
-      fontFamily: 'Inter, sans-serif'
+      fontFamily: 'Inter, sans-serif',
+      position: 'relative',
+      padding: '24px'
     }}>
-      <div className="glass-card" style={{
+      {/* Top Controls */}
+      <div className="login-header-controls" style={{
+        position: 'absolute',
+        top: '24px',
+        left: '24px',
+        right: '24px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        zIndex: 10
+      }}>
+        <Link 
+          to="/" 
+          style={{ 
+            display: 'inline-flex', 
+            alignItems: 'center', 
+            gap: '8px', 
+            color: 'var(--text-secondary)', 
+            textDecoration: 'none',
+            fontSize: '0.875rem',
+            fontWeight: 600,
+            padding: '8px 14px',
+            borderRadius: '9999px',
+            background: 'var(--accent-active)',
+            border: '1px solid var(--border-color)'
+          }}
+        >
+          <ArrowLeft size={16} />
+          <span>{t('login.backHome')}</span>
+        </Link>
+        <ThemeLanguageBar />
+      </div>
+
+      <div className="glass-card login-card" style={{
         width: '100%',
         maxWidth: '400px',
         padding: '40px',
@@ -46,11 +85,11 @@ const Login: React.FC = () => {
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
       }}>
         <div style={{ textAlign: 'center' }}>
-          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 700, color: 'white' }}>
-            PACS Enterprise
+          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 700, color: 'var(--text-primary)' }}>
+            {t('login.title')}
           </h1>
           <p style={{ margin: '8px 0 0 0', color: 'var(--text-muted)' }}>
-            Insira suas credenciais médicas
+            {t('login.subtitle')}
           </p>
         </div>
 
@@ -62,17 +101,18 @@ const Login: React.FC = () => {
 
         <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Usuário</label>
+            <label style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{t('login.username')}</label>
             <input 
               type="text" 
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              placeholder="Ex: admin ou usuario@clinica.com"
               style={{
                 padding: '12px 16px',
                 borderRadius: '8px',
                 border: '1px solid var(--border-color)',
-                background: 'rgba(255,255,255,0.05)',
-                color: 'white',
+                background: 'var(--bg-app)',
+                color: 'var(--text-primary)',
                 outline: 'none',
                 fontSize: '1rem'
               }}
@@ -81,17 +121,18 @@ const Login: React.FC = () => {
           </div>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <label style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Senha</label>
+            <label style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{t('login.password')}</label>
             <input 
               type="password" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              placeholder="Digite sua senha..."
               style={{
                 padding: '12px 16px',
                 borderRadius: '8px',
                 border: '1px solid var(--border-color)',
-                background: 'rgba(255,255,255,0.05)',
-                color: 'white',
+                background: 'var(--bg-app)',
+                color: 'var(--text-primary)',
                 outline: 'none',
                 fontSize: '1rem'
               }}
@@ -102,10 +143,10 @@ const Login: React.FC = () => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '-8px' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.875rem', color: 'var(--text-muted)' }}>
               <input type="checkbox" style={{ accentColor: 'var(--accent-primary)', cursor: 'pointer' }} />
-              Salvar login
+              {t('login.remember')}
             </label>
             <a href="#" onClick={(e) => { e.preventDefault(); alert("Função de recuperação de senha será implementada em breve."); }} style={{ fontSize: '0.875rem', color: 'var(--accent-primary)', textDecoration: 'none' }}>
-              Esqueci a senha
+              {t('login.forgot')}
             </a>
           </div>
 
@@ -127,7 +168,7 @@ const Login: React.FC = () => {
               transition: 'all 0.2s'
             }}
           >
-            {loading ? 'Autenticando...' : 'Acessar Sistema'}
+            {loading ? t('login.loading') : t('login.submit')}
           </button>
         </form>
       </div>
@@ -136,3 +177,4 @@ const Login: React.FC = () => {
 };
 
 export default Login;
+

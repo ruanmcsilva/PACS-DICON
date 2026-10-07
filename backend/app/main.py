@@ -11,6 +11,7 @@ from app.core.storage import init_minio_bucket
 from app.core.database import engine, Base
 from app.dicom.server import start_dicom_server_in_background, dicom_scp
 from app.core.queue.consumer import start_consumer
+from app.core.queue.publisher import rabbitmq_publisher
 import asyncio
 # Import models to ensure they are registered with SQLAlchemy Base before create_all
 from app.pacs.models import Patient, Study, Series, Instance, Annotation, Report, DicomNode
@@ -33,13 +34,15 @@ async def lifespan(app: FastAPI):
     # 4. Start DICOM Server (SCP) in background
     dicom_thread = start_dicom_server_in_background()
     
-    # 5. Start RabbitMQ Background Worker
+    # 5. Connect RabbitMQ Persistent Publisher and Background Worker
+    await rabbitmq_publisher.connect()
     consumer_task = asyncio.create_task(start_consumer())
     
     yield # App is running
     
     logger.info("Shutting down PACS/DICOM Enterprise...")
     consumer_task.cancel()
+    await rabbitmq_publisher.close()
     
     # Stop DICOM Server
     dicom_scp.stop()

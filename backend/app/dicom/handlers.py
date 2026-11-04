@@ -8,7 +8,7 @@ from pydicom.filewriter import write_file_meta_info
 
 from app.core.config import settings
 from app.core.storage import get_minio_client
-from app.pacs.service import query_dicom_find, get_instances_for_move
+from app.pacs.service import query_dicom_find, get_instances_for_move, get_dicom_node_by_aet
 from app.core.queue.publisher import publish_metadata_task_sync
 from pydicom import dcmread
 
@@ -100,16 +100,27 @@ def handle_move(event):
     Handler for C-MOVE (Retrieve Service).
     Finds instances, negotiates with destination, and yields them to be sent.
     """
-    dest_aet = event.request.MoveDestination
-    logger.info(f"Received C-MOVE request. Destination AE: {dest_aet.decode('utf-8', 'ignore') if isinstance(dest_aet, bytes) else dest_aet}")
+    raw_aet = event.request.MoveDestination
+    dest_aet_str = (raw_aet.decode('utf-8', 'ignore') if isinstance(raw_aet, bytes) else str(raw_aet)).strip()
+    dest_aet_bytes = dest_aet_str.encode('utf-8')
+    logger.info(f"Received C-MOVE request. Destination AE: {dest_aet_str}")
     
-    # 1. Map AE Title to IP/Port
-    if dest_aet not in DESTINATION_MAP:
-        logger.error(f"Unknown Move Destination: {dest_aet}")
+    # 1. Lookup AE Title in DB (admin.dicom_nodes) first, fallback to static DESTINATION_MAP
+    dest_info = None
+    try:
+        dest_info = asyncio.run(get_dicom_node_by_aet(dest_aet_str))
+    except Exception as e:
+        logger.warning(f"Could not query dicom_nodes table for C-MOVE destination '{dest_aet_str}': {e}")
+
+    if not dest_info and dest_aet_bytes in DESTINATION_MAP:
+        dest_info = DESTINATION_MAP[dest_aet_bytes]
+
+    if not dest_info:
+        logger.error(f"Unknown Move Destination: {dest_aet_str}")
         yield (0xA801, None) # Refused: Move Destination Unknown
         return
         
-    addr, port = DESTINATION_MAP[dest_aet]
+    addr, port = dest_info
     
     # 2. Yield Destination info so pynetdicom can open the association
     yield (addr, port)

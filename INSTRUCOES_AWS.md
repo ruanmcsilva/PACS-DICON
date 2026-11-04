@@ -1,39 +1,52 @@
-# Passos para Retomar os Testes na AWS (PACS-DICOM)
+# Passos para Subir e Testar na AWS (PACS-DICOM)
 
-Este guia contém os comandos necessários para você continuar amanhã com a máquina `t3.medium`.
+Este guia contém o passo a passo enxuto e atualizado (sem precisar rodar correções manuais `sed`, pois o código já está 100% ajustado).
 
-## 1. Iniciar a Máquina na AWS
-Se a máquina estiver parada, vá no painel EC2, certifique-se de que ela está como **t3.medium** e clique em **Iniciar Instância**.
+## 1. Iniciar a Máquina na AWS (Economizando Créditos)
+1. No painel EC2 da AWS, inicie sua instância (`t3.small` ou `t3.medium`).
+2. Verifique se o **Security Group** da instância tem apenas estas 3 portas abertas:
+   - **Porta 22 (SSH)**
+   - **Porta 80 (HTTP - Interface Web e API)**
+   - **Porta 11112 (Custom TCP - Recepção DICOM SCP)**
+3. **Importante para economizar créditos:** Assim que terminar a bateria de testes do dia, vá no painel EC2 e clique em **Estado da Instância -> Interromper (Stop)**. Máquina parada não consome créditos de computação!
 
-## 2. Conectar no Servidor
-No terminal do seu computador, conecte-se via SSH:
+## 2. Conectar no Servidor via SSH
+No terminal do seu computador:
 ```bash
-ssh -i ~/Documentos/Sisema-pacs-virginia.pem ubuntu@3.237.198.141
+ssh -i ~/Documentos/Sisema-pacs-virginia.pem ubuntu@SEU_IP_AWS
 ```
-*(Substitua `3.237.198.141` pelo Endereço IP Público da sua nova máquina na AWS Virginia caso mude ao reiniciar).*
+*(Substitua `SEU_IP_AWS` pelo IP Público atual da sua instância EC2).*
 
-## 3. Corrigir as URLs e Subir o Frontend
-Assim que estiver logado na AWS (`ubuntu@ip-172...`), copie e cole o bloco de comandos abaixo. 
-Isso vai corrigir o erro de login e recompilar a interface web muito mais rápido com a máquina t3.medium.
+## 3. Atualizar o Código e Subir o Sistema
+
+Você tem **duas opções** na AWS:
+
+### Opção A (Recomendada para Teste Básico / Mais Econômica — Sem custo de S3)
+Usa o `docker-compose.prod.yml`, que já sobe o armazenamento (MinIO) dentro da própria máquina EC2, sem precisar configurar chaves IAM ou gastar com requisições no Amazon S3:
 
 ```bash
-cd ~/PACS-DICON
+cd ~/PACS-DICON || cd ~/PACS-DICOm
+git pull origin main
+sudo docker compose -f docker-compose.prod.yml up -d --build
+```
 
-sed -i "s|baseURL: 'http://localhost:8000/api'|baseURL: '/api'|g" frontend/src/core/api/axios.ts
-sed -i "s|REACT_APP_API_URL || 'http://localhost:8000/api'|REACT_APP_API_URL || '/api'|g" frontend/src/pacs/services/api.ts
-sed -i 's|const baseUrl = "http://localhost:8000";|const baseUrl = window.location.origin;|g' frontend/src/pacs/components/SeriesThumbnail.tsx
-sed -i 's|const baseUrl = "http://localhost:8000";|const baseUrl = window.location.origin;|g' frontend/src/pacs/components/Viewer.tsx
-sed -i 's|fetch(`http://localhost:8000/api/pacs/studies/${studyId}/report/export`|fetch(`/api/pacs/studies/${studyId}/report/export`|g' frontend/src/pacs/components/Viewer.tsx
+### Opção B (Usando Bucket S3 da Amazon)
+Se preferir salvar no bucket S3 da AWS (requer o arquivo `.env` com `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` e `AWS_S3_BUCKET_NAME`):
 
-sudo docker compose -f docker-compose.aws.yml build frontend
-sudo docker compose -f docker-compose.aws.yml up -d frontend
+```bash
+cd ~/PACS-DICON || cd ~/PACS-DICOm
+git pull origin main
+sudo docker compose -f docker-compose.aws.yml up -d --build
 ```
 
 ## 4. Testar o Sistema
-Assim que o comando acima terminar:
-1. Acesse `http://3.236.185.28` no seu navegador.
-2. Faça login com o usuário **`admin`** e senha **`admin`**.
-3. No seu software/equipamento de imagem (KPACS, Ressonância, etc.), configure o envio para:
-   - **IP / Host:** `3.236.185.28`
+Assim que os containers subirem (`sudo docker ps`):
+1. Acesse `http://SEU_IP_AWS` no navegador e clique em **Acessar Portal** (ou vá direto em `http://SEU_IP_AWS/login`).
+2. Faça login com:
+   - **Usuário:** `admin`
+   - **Senha:** `admin`
+3. No seu equipamento de imagem (KPACS, Ressonância, Ultrassom ou `ponte_dicom.py`), configure o destino para:
+   - **IP / Host:** `SEU_IP_AWS`
    - **Porta:** `11112`
-   - **AETitle:** `PACS_ENTERPRISE1`
+   - **Called AE Title:** `PACS_ENTERPRISE1`
+

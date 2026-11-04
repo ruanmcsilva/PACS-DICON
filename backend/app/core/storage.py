@@ -9,7 +9,8 @@ minio_client = Minio(
     settings.MINIO_SERVER,
     access_key=settings.MINIO_ROOT_USER,
     secret_key=settings.MINIO_ROOT_PASSWORD,
-    secure=settings.MINIO_SECURE
+    secure=settings.MINIO_SECURE,
+    region=settings.MINIO_REGION
 )
 
 def init_minio_bucket():

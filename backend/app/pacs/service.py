@@ -5,7 +5,7 @@ from sqlalchemy.dialects.postgresql import insert
 from datetime import datetime
 from collections import OrderedDict
 
-from app.pacs.models import Patient, Study, Series, Instance
+from app.pacs.models import Patient, Study, Series, Instance, DicomNode
 from app.core.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
@@ -287,6 +287,20 @@ async def query_dicom_find(query_dataset: Dataset) -> list[Dataset]:
                 results.append(ds)
                 
     return results
+
+async def get_dicom_node_by_aet(ae_title: str) -> tuple[str, int] | None:
+    """
+    Looks up a registered DICOM Node by its AE Title in the database.
+    Returns (ip_address, port) if found, otherwise None.
+    """
+    clean_aet = ae_title.strip().upper()
+    async with AsyncSessionLocal() as session:
+        stmt = select(DicomNode).where(DicomNode.ae_title == clean_aet)
+        result = await session.execute(stmt)
+        node = result.scalar_one_or_none()
+        if node:
+            return (node.ip_address, node.port)
+    return None
 
 async def get_instances_for_move(query_dataset: Dataset) -> list[str]:
     """

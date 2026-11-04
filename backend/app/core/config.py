@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     MINIO_SERVER: str = "localhost:9000" # 'minio:9000' when in docker
     MINIO_SECURE: bool = False
     MINIO_BUCKET_NAME: str = "dicom-images"
+    MINIO_REGION: Optional[str] = None
 
     # DICOM Server Config
     DICOM_AETITLE: str = "PACS_ENTERPRISE1"

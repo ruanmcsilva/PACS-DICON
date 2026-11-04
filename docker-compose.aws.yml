@@ -64,9 +64,10 @@ services:
       # ==========================================
       - MINIO_SERVER=s3.amazonaws.com # Conectando direto no endpoint da Amazon
       - MINIO_SECURE=True
-      - MINIO_ROOT_USER=${AWS_ACCESS_KEY_ID} # Pegará do arquivo .env no servidor EC2
-      - MINIO_ROOT_PASSWORD=${AWS_SECRET_ACCESS_KEY} # Pegará do arquivo .env no servidor EC2
-      - MINIO_BUCKET_NAME=${AWS_S3_BUCKET_NAME} # Nome do bucket que vc criará na AWS
+      - MINIO_ROOT_USER=${AWS_ACCESS_KEY_ID:-} # Pegará do arquivo .env no servidor EC2
+      - MINIO_ROOT_PASSWORD=${AWS_SECRET_ACCESS_KEY:-} # Pegará do arquivo .env no servidor EC2
+      - MINIO_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-pacs-exames-teste} # Nome do bucket na AWS
+      - MINIO_REGION=${AWS_REGION:-us-east-1} # Região do bucket S3
       # ==========================================
       - RABBITMQ_URL=amqp://pacsuser:pacspassword@rabbitmq:5672/
       - SECRET_KEY=prod_fallback_secure_key_you_must_change_in_env_file
